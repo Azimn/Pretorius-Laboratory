@@ -52,8 +52,10 @@ def effective_objects(db):
     if exists(db):
         held = _meta(db)["items"]
     for oid, state in held.items():
-        if oid not in objects or objects[oid]["kind"] != "book":
-            raise Conflict("Custody book has no underlying stable physical identity")
+        if oid not in objects:
+            raise Conflict("Custody references no stable physical object identity")
+        if state["held_by"] is not None and objects[oid]["kind"] != "book":
+            raise Conflict("Only supported book objects may be carried")
         obj = objects[oid]
         obj["anchor_id"] = state["anchor_id"]
         obj["held_by"] = state["held_by"]
@@ -91,13 +93,18 @@ def _apply(items, action, *, sandbox):
     expected = {
         "take": {"op", "book_id", "from_anchor"},
         "put": {"op", "book_id", "anchor_id"},
+        # Operator-authorized relocation may target a previously reserved raw
+        # anchor if that anchor is physically vacant in the effective world.
+        "operator_place": {"op", "object_id", "from_anchor", "anchor_id"},
         "fork_seed": {"op", "book_id", "record"},
     }
     if op not in expected or set(action) != expected[op]:
         raise Conflict("Unknown custody reducer operation")
-    book_id = action["book_id"]
-    if not isinstance(book_id, str) or not book_id.startswith("book:"):
-        raise Conflict("Invalid physical book ID")
+    book_id = action.get("object_id") if op == "operator_place" else action["book_id"]
+    if not isinstance(book_id, str) or not (
+            book_id.startswith("book:") or
+            (op in {"operator_place", "fork_seed"} and book_id == "beaker:001")):
+        raise Conflict("Invalid known physical object ID")
     state = copy.deepcopy(items)
     if op == "fork_seed":
         if not sandbox or book_id in state:
@@ -110,6 +117,15 @@ def _apply(items, action, *, sandbox):
         if record["held_by"] not in (None, SUBJECT_ID):
             raise Conflict("Foreign holder")
         state[book_id] = copy.deepcopy(record)
+    elif op == "operator_place":
+        source, destination = action["from_anchor"], action["anchor_id"]
+        if (not isinstance(source, str) or not isinstance(destination, str) or
+                source == destination):
+            raise Conflict("Invalid operator relocation")
+        old = state.get(book_id)
+        if old is not None and (old["anchor_id"] != source or old["held_by"] is not None):
+            raise Conflict("Operator move is not based on current placement")
+        state[book_id] = {"anchor_id": destination, "held_by": None}
     elif op == "take":
         aid = action["from_anchor"]
         if not isinstance(aid, str):
@@ -233,8 +249,10 @@ class BookCustody:
             if (meta["items"], meta["revision"], meta["head_hash"]) != (items, revision, prev):
                 raise Conflict("Materialized custody is inconsistent")
             for oid, rec in items.items():
-                if oid not in raw or raw[oid]["kind"] != "book":
-                    raise Conflict("Custody references unknown book")
+                if oid not in raw:
+                    raise Conflict("Custody references unknown physical object")
+                if rec["held_by"] is not None and raw[oid]["kind"] != "book":
+                    raise Conflict("Only books may be carried")
                 if rec["anchor_id"] is not None:
                     if rec["anchor_id"] not in host["state"]["anchors"]:
                         raise Conflict("Custody references unknown anchor")
@@ -248,7 +266,7 @@ class BookCustody:
                     "world_epoch": meta["world_epoch"]}
 
     def act(self, operation, book_id, *, destination=None, event_id=None):
-        if operation not in {"take", "put"}:
+        if operation not in {"take", "put", "operator_place"}:
             raise LabError("Unsupported handling action")
         self.verify()
         event_id = event_id or str(uuid.uuid4())
@@ -265,8 +283,10 @@ class BookCustody:
                 (event_id,)).fetchone()
             if prior:
                 e = json.loads(prior[0])
-                if e["action"]["op"] != operation or e["action"]["book_id"] != book_id or (
-                        operation == "put" and e["action"]["anchor_id"] != destination):
+                oid = e["action"].get("object_id", e["action"].get("book_id"))
+                if (e["action"]["op"] != operation or oid != book_id or
+                        (operation in {"put", "operator_place"} and
+                         e["action"]["anchor_id"] != destination)):
                     raise Conflict("Handling event id reused for a different operation")
                 historical_location = ({"anchor_id": None, "held_by": SUBJECT_ID}
                     if operation == "take" else
@@ -293,11 +313,21 @@ class BookCustody:
                         if meta["revision"] else None)
             if (recorded[0] if recorded else GENESIS_HASH) != meta["head_hash"]:
                 raise Conflict("Physical custody event head invalid")
-            if book_id not in raw or raw[book_id]["kind"] != "book":
-                raise LabError("Unknown physical book")
+            if book_id not in raw or (
+                    operation != "operator_place" and raw[book_id]["kind"] != "book"):
+                raise LabError("Unknown supported physical object")
             effective = effective_objects(db)
             before = effective[book_id]["anchor_id"]
-            if operation == "take":
+            if operation == "operator_place":
+                if before is None or effective[book_id].get("held_by") is not None:
+                    raise Conflict("Cannot operator-relocate a book held by the actor")
+                if destination not in host["state"]["anchors"] or before == destination:
+                    raise LabError("Invalid or unchanged placement target")
+                if any(o["anchor_id"] == destination for o in effective.values()):
+                    raise Conflict("A physical object already occupies that location")
+                action = {"op": "operator_place", "object_id": book_id,
+                          "from_anchor": before, "anchor_id": destination}
+            elif operation == "take":
                 if destination is not None:
                     raise LabError("Pickup has no destination")
                 if before is None:
@@ -335,7 +365,7 @@ class BookCustody:
             _put(db, "items", updated)
             _put(db, "revision", event["revision"])
             _put(db, "head_hash", h)
-            return {"book_id": book_id, "event_id": event_id, "event_hash": h,
+            return {"object_id": book_id, "event_id": event_id, "event_hash": h,
                     "location": updated[book_id]}
 
     def _fork_into(self, clone):
