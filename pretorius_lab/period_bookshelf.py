@@ -43,18 +43,15 @@ def genuine_text(blob: bytes) -> str:
         metadata = blob[:8000].decode("ascii", errors="ignore").lower()
         if "character set encoding: iso-8859-1" in metadata:
             text = blob.decode("latin-1")
-        elif any(label in metadata for label in (
-                "character set encoding: windows-1252",
-                "character set encoding: cp1252",
-                "character set encoding: us-ascii",
-                "character set encoding: ascii")):
-            # Some old ASCII-labelled plain texts contain CP1252 punctuation.
-            # Refuse non-ASCII bytes when the declared encoding is strict ASCII.
-            if "ascii" in metadata and "1252" not in metadata:
-                raise LabError("Source declares ASCII but contains non-ASCII bytes")
-            text = blob.decode("cp1252")
         else:
-            raise LabError("Unknown non-UTF-8 source encoding; inspect edition metadata")
+            # Old Gutenberg text frequently has Windows-1252 punctuation,
+            # including files whose headers omit an encoding declaration.
+            # This fallback is deterministic and the original Git blob bytes
+            # remain pinned. Do not claim exact historical typography.
+            try:
+                text = blob.decode("cp1252")
+            except UnicodeDecodeError as exc:
+                raise LabError("Cannot decode pinned source as UTF-8, ISO-8859-1 or CP1252") from exc
     start, end = GUTENBERG_START.search(text), GUTENBERG_END.search(text)
     if not start or not end or start.end() >= end.start():
         raise LabError("Unknown Gutenberg wrapper; refuse to invent book boundaries")
@@ -170,7 +167,11 @@ def import_collection(habitat: SpatialHabitat, bibliography: dict,
         raw = fetcher(entry)
         if len(raw) != entry["source_bytes"] or git_blob_digest(raw) != entry["source_git_blob_sha1"]:
             raise Conflict("Source mismatch before import")
-        pages = digital_leaves(genuine_text(raw))
+        try:
+            pages = digital_leaves(genuine_text(raw))
+        except (LabError, UnicodeDecodeError) as exc:
+            raise LabError("Source " + entry["book_id"] + " (" +
+                           entry["source_file"] + "): " + str(exc)) from exc
         prepared.append((entry, pages, hashlib.sha256(raw).hexdigest()))
     if dry_run:
         return {"validated": len(prepared), "installed": 0,
