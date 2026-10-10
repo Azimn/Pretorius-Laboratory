@@ -199,6 +199,16 @@ class ShelfAnnex:
                 if previous["action"] != action or previous["actor"] != actor:
                     raise Conflict("Event ID reused with different annex operation")
                 return {**previous, "event_hash": prior[1]}
+            from .book_custody import exists as custody_exists, effective_objects
+            if custody_exists(db):
+                custody = {k: json.loads(v) for k, v in db.execute(
+                    "SELECT key,value FROM custody_meta")}
+                if action["book_id"] in custody["items"]:
+                    raise Conflict("Physical book is controlled by custody ledger")
+                if action["op"] in {"move", "register"}:
+                    if any(obj["anchor_id"] == action["anchor_id"]
+                           for obj in effective_objects(db).values()):
+                        raise Conflict("Destination occupied in effective world")
             updated = _apply(m["items"], action, anchors=host["state"]["anchors"],
                              core=host["state"]["objects"], branch=m["mode"],
                              revision=m["revision"] + 1)
@@ -252,4 +262,11 @@ def physical_book_objects(habitat):
     if set(objects) & set(additions):
         raise Conflict("Annex duplicates core object ID")
     objects.update(additions)
+    from .book_custody import BookCustody, exists, effective_objects
+    with habitat._open() as db:
+        has_custody = exists(db)
+    if has_custody:
+        BookCustody(habitat).verify()
+        with habitat._open() as db:
+            return effective_objects(db)
     return objects

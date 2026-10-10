@@ -269,6 +269,17 @@ class SpatialHabitat:
             if expected_revision is not None and (
                     type(expected_revision) is not int or expected_revision != m["revision"]):
                 raise Conflict("Stale world revision")
+            from .book_custody import exists as custody_exists, effective_objects
+            if custody_exists(db):
+                custody = {k: json.loads(val) for k, val in db.execute(
+                    "SELECT key,value FROM custody_meta")}
+                if action.get("object_id") in custody["items"]:
+                    raise Conflict("Object location is now governed by physical custody")
+                if action["op"] == "place":
+                    live = effective_objects(db)
+                    if any(obj["anchor_id"] == action["anchor_id"]
+                           for obj in live.values()):
+                        raise Conflict("Destination physically occupied")
             before = m["state"]
             after = apply_spatial(before, action, m["revision"] + 1)
             if has_annex:
@@ -368,6 +379,11 @@ class SpatialHabitat:
 
     def backup_to(self, destination: str | Path) -> dict:
         self.verify()
+        from .book_custody import BookCustody, exists as custody_exists
+        with self._open() as db:
+            has_custody = custody_exists(db)
+        if has_custody:
+            BookCustody(self).verify()
         from .embodied_access import EmbodiedAccess
         with self._open() as db:
             has_body = db.execute(
@@ -418,11 +434,18 @@ class SpatialHabitat:
             ObservationPort(SpatialHabitat(dest)).verify()
         if has_body:
             EmbodiedAccess(SpatialHabitat(dest)).verify()
+        if has_custody:
+            BookCustody(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
         m = self._verified_status()
+        from .book_custody import BookCustody, exists as custody_exists
+        with self._open() as db:
+            has_custody = custody_exists(db)
+        if has_custody:
+            BookCustody(self).verify()
         from .embodied_access import EmbodiedAccess
         with self._open() as db:
             has_body = db.execute(
@@ -460,20 +483,18 @@ class SpatialHabitat:
             obj["revision"] = 0
         clone = SpatialHabitat.create(destination, initial_state=cloned_state,
                                       parent=parent, home_id=m["home_id"])
-        # Register the fork's physical books before attaching their full text.
+        # Restore dependency order: physical annex -> actor pose -> custody
+        # -> book source editions -> observation ledger.
         if has_annex:
             ShelfAnnex(self)._fork_into(clone)
-        # Optional book domain has its own cursor and immutable source pages.
-        # It must follow the room into a fork rather than silently disappearing.
+        if has_body:
+            EmbodiedAccess(self)._fork_into(clone)
+        if has_custody:
+            BookCustody(self)._fork_into(clone)
         if has_books:
             BookLibrary(self)._fork_into(clone)
         if has_observations:
-            # Forks may inherit book contents but NEVER inherit purported
-            # first-person delivery receipts as events they witnessed.
             ObservationPort(clone).initialize()
-        if has_body:
-            # Copy position, not source-world perception, as a fork genesis.
-            EmbodiedAccess(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
@@ -490,10 +511,11 @@ class SpatialHabitat:
     def inspect_object(self, object_id: str) -> dict:
         """Engineering-only exact geometry and object metadata. Never pass to subject."""
         m = self._verified_status()
-        obj = m["state"]["objects"].get(object_id)
+        from .shelf_annex import physical_book_objects
+        obj = physical_book_objects(self).get(object_id)
         if obj is None:
             raise LabError("Unknown object")
-        anchor = m["state"]["anchors"][obj["anchor_id"]]
+        anchor = m["state"]["anchors"].get(obj["anchor_id"])
         return {"object_id": object_id, "object": obj,
                 "anchor_id": obj["anchor_id"], "anchor": anchor,
                 "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
@@ -522,12 +544,15 @@ class SpatialHabitat:
         obj = physical_book_objects(self).get(object_id)
         if obj is None:
             raise LabError("Unknown object")
-        anchor = m["state"]["anchors"][obj["anchor_id"]]
+        anchor = m["state"]["anchors"].get(obj["anchor_id"])
         names = self._verified_spine_titles() if obj["kind"] == "book" else {}
+        location = ({"holder": obj["held_by"], "placement": "carried"}
+                    if anchor is None else
+                    {"room": anchor["room"], "fixture": anchor["parent"],
+                     "position": anchor["ordinal"], "anchor_id": obj["anchor_id"]})
         return {"object_id": object_id,
                 "name": names.get(object_id, obj["name"]), "condition": obj["condition"],
-                "location": {"room": anchor["room"], "fixture": anchor["parent"],
-                             "position": anchor["ordinal"], "anchor_id": obj["anchor_id"]},
+                "location": location,
                 "observation_class": "offered_host_fact_not_proof_of_witnessing"}
 
     def scan(self, parent: str) -> dict:
@@ -541,7 +566,8 @@ class SpatialHabitat:
         occupancy = {obj["anchor_id"]: {"id": oid,
                                        "name": names.get(oid, obj["name"]),
                                        "condition": obj["condition"]}
-                     for oid, obj in physical_book_objects(self).items()}
+                     for oid, obj in physical_book_objects(self).items()
+                     if obj["anchor_id"] is not None}
         return {"fixture_id": parent,
                 "positions": [{"anchor_id": key, "ordinal": value["ordinal"],
                                "occupant": occupancy.get(key)}
@@ -568,7 +594,8 @@ class SpatialHabitat:
                     "condition": obj["condition"], "collected": obj.get("collected", True),
                     "anchor_id": obj["anchor_id"],
                 } for oid, obj in sorted(objects.items())
-                    if state["anchors"][obj["anchor_id"]]["room"] == room}}
+                    if (obj["anchor_id"] is not None and
+                        state["anchors"][obj["anchor_id"]]["room"] == room)}}
 
 
 def main(argv=None) -> int:

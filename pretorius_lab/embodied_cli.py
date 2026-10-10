@@ -16,6 +16,13 @@ def main(argv=None):
     sub.add_parser("init")
     sub.add_parser("verify")
     sub.add_parser("look")
+    sub.add_parser("init-custody")
+    sub.add_parser("verify-custody")
+    take = sub.add_parser("take")
+    take.add_argument("book_id")
+    put = sub.add_parser("put")
+    put.add_argument("book_id")
+    put.add_argument("destination")
     go = sub.add_parser("go")
     go.add_argument("station")
     book = sub.add_parser("book")
@@ -33,6 +40,16 @@ def main(argv=None):
             result = actor.verify()
         elif args.command == "look":
             result = actor.look()
+        elif args.command == "init-custody":
+            from .book_custody import BookCustody
+            result = BookCustody(actor.habitat).initialize()
+        elif args.command == "verify-custody":
+            from .book_custody import BookCustody
+            result = BookCustody(actor.habitat).verify()
+        elif args.command == "take":
+            result = actor.take(args.book_id)
+        elif args.command == "put":
+            result = actor.put(args.book_id, args.destination)
         elif args.command == "go":
             result = actor.move(args.station)
         else:
