@@ -164,16 +164,13 @@ class EmbodiedAccess:
         proof = self.habitat.verify()
         # Separate completed provenance checks remain outside the DB read.
         from .shelf_annex import ShelfAnnex
-        from .book_library import BookLibrary
         with self.habitat._open() as check:
             has_annex = ShelfAnnex.exists(check)
-            has_books = check.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
-            ).fetchone() is not None
         if has_annex:
             ShelfAnnex(self.habitat).verify()
-        if has_books:
-            BookLibrary(self.habitat).verify()
+        # The body's pose ledger is independent from the source-book ledger.
+        # A movement should not rereplay megabytes of unrelated book text.
+        # Look/book commands verify source book integrity at point of exposure.
         with self.habitat._open() as db:
             if db.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='embodied_meta'"
@@ -249,6 +246,16 @@ class EmbodiedAccess:
             raise LabError("Invalid action ID")
         if kind not in ("move", "look"):
             raise LabError("Unsupported embodied command")
+        if kind == "look":
+            from .book_library import BookLibrary
+            with self.habitat._open() as check:
+                has_books = check.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
+                ).fetchone() is not None
+            if has_books:
+                # Full source replay happens only before text-derived names
+                # actually enter the offered subject perception.
+                BookLibrary(self.habitat).verify()
         with self.habitat._open() as db:
             db.execute("BEGIN IMMEDIATE")
             m, host = _meta(db), SpatialHabitat._metadata(db)
