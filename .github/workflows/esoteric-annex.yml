@@ -74,6 +74,34 @@ jobs:
           python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" backup "$RUNNER_TEMP/esoteric-library/embodied-17-volume-backup.sqlite3"
           python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/embodied-17-volume-backup.sqlite3" verify
 
+      - name: Carry actual Isis Unveiled to the workbench and verify source-backed placement
+        run: |
+          db="$RUNNER_TEMP/esoteric-library/laboratory.sqlite3"
+          python -m pretorius_lab.embodied_cli --db "$db" init-custody
+          python -m pretorius_lab.habitat_v2 --db "$db" act place beaker:001 floor:corner:se
+          python -m pretorius_lab.embodied_cli --db "$db" take book:008
+          python -m pretorius_lab.habitat_v2 --db "$db" scan shelf:1 > "$RUNNER_TEMP/esoteric-library/after-pickup-shelf1.json"
+          python -m pretorius_lab.embodied_cli --db "$db" go station:center
+          python -m pretorius_lab.embodied_cli --db "$db" go station:bench
+          python -m pretorius_lab.embodied_cli --db "$db" put book:008 bench:main/position:left
+          python -m pretorius_lab.habitat_v2 --db "$db" scan bench:main > "$RUNNER_TEMP/esoteric-library/after-drop-workbench.json"
+          python -m pretorius_lab.embodied_cli --db "$db" book open_mark book:008 --bookmark research-slip
+          python -m pretorius_lab.embodied_cli --db "$db" book read book:008 > "$RUNNER_TEMP/esoteric-library/workbench-source-read.json"
+          python -m pretorius_lab.embodied_cli --db "$db" verify-custody > "$RUNNER_TEMP/esoteric-library/custody-proof.json"
+          python -m pretorius_lab.habitat_v2 --db "$db" backup "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3"
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3" verify-custody
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"])/"esoteric-library"
+          shelf = json.loads((root/"after-pickup-shelf1.json").read_text())
+          bench = json.loads((root/"after-drop-workbench.json").read_text())
+          read = json.loads((root/"workbench-source-read.json").read_text())
+          assert shelf["positions"][0]["occupant"] is None
+          assert bench["positions"][0]["occupant"]["id"] == "book:008"
+          assert len(read["page_text"]) > 100
+          print("Actual full-text book moved off shelf, carried and reread at bench")
+          PY
       - name: Upload verified 17-volume persistent laboratory snapshot
         uses: actions/upload-artifact@v4
         with:
