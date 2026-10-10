@@ -105,6 +105,30 @@ The annex uses an append-only physical-object ledger to add the new identities a
 
 To build a *fresh* 17-volume lab, initialize a spatial v2 file, run the original Victorian bookshelf import, then run the additional esoteric import with the explicit flag \`--register-annex\`. The [esoteric bookshelf verification workflow](.github/workflows/esoteric-annex.yml) produces a full SQLite backup artifact; this is a synthetic research fixture rather than Pretorius's actual inhabited home.
 
+## Position-gated subject access (opt-in)
+
+A standalone, event-replayed **embodied laboratory port** now tracks an artificial research actor's durable location, separately from the objective world. A character at the sanctum threshold can see major room features but **cannot enumerate or read a distant shelf**. Walking via the central floor station to the shelf enables a local, source-backed book inspection; there are no default numerical coordinates, unearned page contents, or direct admin-state access. These coarse floor stations are a prototype reach policy, not yet continuous 3D locomotion or sightline physics.
+
+The optional actor's go, look, and book actions have source-bound receipts, and its placement persists across application restart and verified backup. Book page actions are checked against both the current physical book position and actor position in the same SQLite transaction, preventing a book from being read remotely if it was moved elsewhere before the request. A separate experiment fork inherits pose, but not the parent's alleged lived observations.
+
+~~~bash
+python -m pretorius_lab.habitat_v2 --db data/embodied-fixture.sqlite3 init
+python -m pretorius_lab.book_cli --db data/embodied-fixture.sqlite3 init
+python -m pretorius_lab.book_cli --db data/embodied-fixture.sqlite3 install book:007 fixtures/DEMO_BOOK_007.json
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 init
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 look
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 go station:center
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 go station:shelf:3
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 look
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 book open book:007
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 book read book:007
+python -m pretorius_lab.embodied_cli --db data/embodied-fixture.sqlite3 verify
+~~~
+
+The source-backed 17-book test fixture is also compatible with this port (move to station:shelf:1 to approach its additional ten occult volumes). Direct world-status/BookLibrary CLI calls are **engineer-only** and remain privileged; do not expose them as subject tools. Local actor labels are not authenticated network identities, and offered pages are not proof of cognition.
+
+See [Position-Gated Subject Access](docs/EMBODIED_SUBJECT_ACCESS_2026-10-10.md) for its event contract, limitations, restart/fork tests and next physical milestone: genuine pickup/holding/return of books with single-world occupancy.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash
