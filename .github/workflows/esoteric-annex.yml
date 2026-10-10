@@ -56,6 +56,24 @@ jobs:
               f"book:{i:03d}" for i in range(1, 8)]
           print("17 source-backed books; no duplicate anchors; original seven retained")
           PY
+      - name: Demonstrate real occult-text reading requires actor to approach shelf
+        run: |
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" init
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" look > "$RUNNER_TEMP/esoteric-library/threshold-view.json"
+          if python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" book read book:008; then
+            echo "ERROR: esoteric source readable remotely from doorway"; exit 1
+          fi
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" go station:center
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" go station:shelf:1
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" look > "$RUNNER_TEMP/esoteric-library/shelf1-embodied-view.json"
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" book open book:008
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" book read book:008 > "$RUNNER_TEMP/esoteric-library/authorized-fulltext-read.json"
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" book mark book:008 --bookmark research-slip
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" book close book:008
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" verify > "$RUNNER_TEMP/esoteric-library/body-proof.json"
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/esoteric-library/laboratory.sqlite3" backup "$RUNNER_TEMP/esoteric-library/embodied-17-volume-backup.sqlite3"
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/embodied-17-volume-backup.sqlite3" verify
+
       - name: Upload verified 17-volume persistent laboratory snapshot
         uses: actions/upload-artifact@v4
         with:
