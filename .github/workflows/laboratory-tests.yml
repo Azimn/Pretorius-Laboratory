@@ -1,0 +1,28 @@
+name: Permanent laboratory acceptance tests
+on:
+  push:
+    branches: ["main", "feature/**"]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python modules
+        run: python -m compileall -q pretorius_lab tests
+      - name: Run laboratory replay and offline-conflict tests
+        run: python -m unittest discover -s tests -v
+      - name: Exercise persistent CLI restart and verification
+        run: |
+          python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" init
+          python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" act open container:specimen
+          python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" checkpoint
+          python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" verify
+          python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" backup "$RUNNER_TEMP/backup.sqlite3"
+          python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" restore "$RUNNER_TEMP/backup.sqlite3" "$RUNNER_TEMP/recovered.sqlite3"
