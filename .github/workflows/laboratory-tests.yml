@@ -41,3 +41,33 @@ jobs:
           python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" fork "$RUNNER_TEMP/fork.sqlite3"
           python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" backup "$RUNNER_TEMP/home-backup.sqlite3"
           python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home-backup.sqlite3" verify
+
+      - name: Exercise source-backed book reading and persistent bookmark
+        run: |
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/books-home.sqlite3" init
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" init
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" install book:007 fixtures/DEMO_BOOK_007.json
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" open book:007
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" read book:007
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" turn book:007 1
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" mark book:007 blue-ribbon
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" close book:007
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" open_mark book:007 blue-ribbon
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" read book:007
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-home.sqlite3" verify
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/books-home.sqlite3" backup "$RUNNER_TEMP/books-backup.sqlite3"
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-backup.sqlite3" verify
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/books-home.sqlite3" fork "$RUNNER_TEMP/books-fork.sqlite3"
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/books-fork.sqlite3" verify
+
+      - name: Exercise persisted subject-facing observations without geometry disclosure
+        run: |
+          python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/books-home.sqlite3" init
+          python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/books-home.sqlite3" room room:sanctum
+          python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/books-home.sqlite3" shelf shelf:3
+          python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/books-home.sqlite3" object book:007
+          python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/books-home.sqlite3" verify
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/books-home.sqlite3" backup "$RUNNER_TEMP/full-backup.sqlite3"
+          python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/full-backup.sqlite3" verify
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/books-home.sqlite3" fork "$RUNNER_TEMP/fork-after-view.sqlite3"
+          python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/fork-after-view.sqlite3" verify

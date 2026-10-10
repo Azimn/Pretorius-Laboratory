@@ -49,6 +49,34 @@ On the next session the beaker remains broken in the northwest corner, and book:
 
 See [Spatial Habitat v2: exact world-anchored continuity](docs/SPATIAL_HABITAT_V2_AND_CONTINUITY_CONTRACT.md) for persistence invariants, source-monitoring, migration boundaries and proposed behavior tests.
 
+## Perception is not privileged world knowledge
+
+The laboratory stores millimetre-precise spatial anchors internally, but subject-facing room descriptions, shelf scans and object lookups **do not expose exact xyz coordinates**. The precise inspect-geometry command and status APIs are engineer-only debugging facilities. They must not be tools available to Pretorius. Instrument-based measurement is a separate future feature, not a reason to grant omniscient host metadata.
+
+The opt-in world also has source-backed, permanently readable book editions and physical bookmarks stored in the same SQLite file under a separately replayable book ledger. Page content is immutable for a bound edition; absent pages cannot be improvised by the renderer. The included book is a three-page **synthetic test edition**, not a real historical book or an existing Pretorius memory.
+
+~~~bash
+python -m pretorius_lab.book_cli --db data/sanctum-v2.sqlite3 init
+python -m pretorius_lab.book_cli --db data/sanctum-v2.sqlite3 install book:007 fixtures/DEMO_BOOK_007.json
+python -m pretorius_lab.book_cli --db data/sanctum-v2.sqlite3 open book:007
+python -m pretorius_lab.book_cli --db data/sanctum-v2.sqlite3 read book:007
+python -m pretorius_lab.book_cli --db data/sanctum-v2.sqlite3 mark book:007 ribbon
+python -m pretorius_lab.book_cli --db data/sanctum-v2.sqlite3 close book:007
+python -m pretorius_lab.book_cli --db data/sanctum-v2.sqlite3 open_mark book:007 ribbon
+~~~
+
+A separate observation receipt interface permanently records which qualitative room, object or shelf facts the research adapter actually returned. A receipt certifies an offered payload, not that Pretorius read or remembers it.
+
+~~~bash
+python -m pretorius_lab.observation_receipts --db data/sanctum-v2.sqlite3 init
+python -m pretorius_lab.observation_receipts --db data/sanctum-v2.sqlite3 shelf shelf:3
+python -m pretorius_lab.observation_receipts --db data/sanctum-v2.sqlite3 verify
+~~~
+
+These additions are available on existing spatial v2 databases without rewriting their physical genesis, event hashes or world epoch. Book installations, page turning, bookmark edits and observation offerings maintain separate append-only ledgers bound to that same physical world. They survive backups; a fork inherits its physical book states and pages, but not a claim that it witnessed its parent's past.
+
+See [Knowledge boundary and persistent books](docs/KNOWLEDGE_BOUNDARY_AND_PERSISTENT_BOOKS_2026-10-10.md). The local actor labels are not network credentials, and the current simulation does not yet implement character reach, lighting, fine-grained object affordances, measured geometry or real cognitive habitation.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash
