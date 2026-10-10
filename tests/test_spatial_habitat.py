@@ -106,6 +106,7 @@ class SpatialContinuityTests(unittest.TestCase):
         self.assertNotEqual(parent["world_epoch"], info["world_epoch"])
         self.assertEqual(parent["home_id"], info["home_id"])
         self.assertEqual(clone.status()["parent"]["head_hash"], parent["head_hash"])
+        self.assertEqual(clone.locate("book:007")["object"]["revision"], 0)
         clone.commit({"op": "break", "object_id": "beaker:001"})
         self.assertEqual(clone.locate("beaker:001")["object"]["condition"], "broken")
         self.assertEqual(self.lab.locate("beaker:001")["object"]["condition"], "intact")
