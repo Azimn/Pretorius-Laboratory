@@ -102,6 +102,7 @@ class ObservationPort:
         if not isinstance(delivery_id, str) or not 1 <= len(delivery_id) <= 128:
             raise LabError("Invalid delivery ID")
         self.verify()
+        guard = self.habitat._verified_status()
         # Read only the subject-facing ports. No engineer-only xyz_mm data.
         if kind == "room":
             payload = self.habitat.observe(target)
@@ -109,13 +110,12 @@ class ObservationPort:
             payload = self.habitat.scan(target)
         else:
             payload = self.habitat.locate(target)
-        world_revision = payload["revision"] if "revision" in payload else None
-        world_cursor = payload["event_cursor"] if "event_cursor" in payload else None
-        # locate() intentionally suppresses host internals. Bind it to a
-        # verified source cursor here, without returning those internals.
-        if world_revision is None:
-            verified = self.habitat._verified_status()
-            world_revision, world_cursor = verified["revision"], verified["head_hash"]
+        world_revision, world_cursor = guard["revision"], guard["head_hash"]
+        # Observe/scan carry source versions; locate intentionally suppresses
+        # them in subject-facing output. The guard covers all three variants.
+        if ("revision" in payload and payload["revision"] != world_revision) or (
+                "event_cursor" in payload and payload["event_cursor"] != world_cursor):
+            raise Conflict("World changed during inspection; retry")
         db = self.habitat._open()
         try:
             db.execute("BEGIN IMMEDIATE")
