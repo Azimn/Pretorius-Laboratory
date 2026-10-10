@@ -89,6 +89,9 @@ def apply(state: dict, action: dict, revision: int) -> dict:
             raise LabError("Destination container is closed")
         if obj["location"] == dest:
             raise LabError("Object is already at this location")
+        origin = result.get(obj["location"])
+        if origin and origin["kind"] == "container" and not origin["open"]:
+            raise LabError("Cannot remove an object from a closed container")
         # No object may become its own ancestor.
         cursor = dest
         visited = set()
