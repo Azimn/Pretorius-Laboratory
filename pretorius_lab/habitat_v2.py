@@ -245,6 +245,12 @@ class SpatialHabitat:
         event_id = event_id or str(uuid.uuid4())
         if not isinstance(event_id, str) or not 1 <= len(event_id) <= 128:
             raise LabError("Invalid event id")
+        # Validate optional physical annex before mutating the primary host.
+        from .shelf_annex import ShelfAnnex
+        with self._open() as check:
+            has_annex = ShelfAnnex.exists(check)
+        if has_annex:
+            ShelfAnnex(self).verify()
         db = self._open()
         try:
             db.execute("BEGIN IMMEDIATE")
@@ -265,6 +271,13 @@ class SpatialHabitat:
                 raise Conflict("Stale world revision")
             before = m["state"]
             after = apply_spatial(before, action, m["revision"] + 1)
+            if has_annex:
+                annex_row = db.execute(
+                    "SELECT value FROM annex_meta WHERE key='items'").fetchone()
+                annex_items = json.loads(annex_row[0]) if annex_row else {}
+                if any(x["anchor_id"] in {v["anchor_id"] for v in after["objects"].values()}
+                       for x in annex_items.values()):
+                    raise Conflict("Core move would overlap an annex physical book")
             row = {
                 "event_id": event_id, "lab_id": m["lab_id"],
                 "home_id": m["home_id"], "world_epoch": m["world_epoch"],
@@ -355,6 +368,11 @@ class SpatialHabitat:
 
     def backup_to(self, destination: str | Path) -> dict:
         self.verify()
+        from .shelf_annex import ShelfAnnex
+        with self._open() as db:
+            has_annex = ShelfAnnex.exists(db)
+        if has_annex:
+            ShelfAnnex(self).verify()
         with self._open() as db:
             has_books = db.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
@@ -385,6 +403,8 @@ class SpatialHabitat:
             src.close()
             dst.close()
         proof = SpatialHabitat(dest).verify()
+        if has_annex:
+            ShelfAnnex(SpatialHabitat(dest)).verify()
         if has_books:
             BookLibrary(SpatialHabitat(dest)).verify()
         if has_observations:
@@ -394,6 +414,11 @@ class SpatialHabitat:
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
         m = self._verified_status()
+        from .shelf_annex import ShelfAnnex
+        with self._open() as source:
+            has_annex = ShelfAnnex.exists(source)
+        if has_annex:
+            ShelfAnnex(self).verify()
         with self._open() as source:
             has_books = source.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
@@ -419,6 +444,9 @@ class SpatialHabitat:
             obj["revision"] = 0
         clone = SpatialHabitat.create(destination, initial_state=cloned_state,
                                       parent=parent, home_id=m["home_id"])
+        # Register the fork's physical books before attaching their full text.
+        if has_annex:
+            ShelfAnnex(self)._fork_into(clone)
         # Optional book domain has its own cursor and immutable source pages.
         # It must follow the room into a fork rather than silently disappearing.
         if has_books:
@@ -471,7 +499,8 @@ class SpatialHabitat:
     def locate(self, object_id: str) -> dict:
         """Subject-facing qualitative location, never privileged spatial coordinates."""
         m = self._verified_status()
-        obj = m["state"]["objects"].get(object_id)
+        from .shelf_annex import physical_book_objects
+        obj = physical_book_objects(self).get(object_id)
         if obj is None:
             raise LabError("Unknown object")
         anchor = m["state"]["anchors"][obj["anchor_id"]]
@@ -489,10 +518,11 @@ class SpatialHabitat:
         if not selected:
             raise LabError("Unknown shelf or spatial fixture")
         names = self._verified_spine_titles()
+        from .shelf_annex import physical_book_objects
         occupancy = {obj["anchor_id"]: {"id": oid,
                                        "name": names.get(oid, obj["name"]),
                                        "condition": obj["condition"]}
-                     for oid, obj in m["state"]["objects"].items()}
+                     for oid, obj in physical_book_objects(self).items()}
         return {"fixture_id": parent,
                 "positions": [{"anchor_id": key, "ordinal": value["ordinal"],
                                "occupant": occupancy.get(key)}
@@ -506,16 +536,19 @@ class SpatialHabitat:
         if room not in ROOMS:
             raise LabError("Unknown room")
         state = m["state"]
+        from .shelf_annex import physical_book_objects
+        objects = physical_book_objects(self)
+        names = self._verified_spine_titles()
         return {"room_id": room, "home_id": m["home_id"],
                 "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
                 "revision": m["revision"], "event_cursor": m["head_hash"],
                 "mode": m["mode"], "observation_class": "source_attested_host_view",
                 "visibility": "research_private",
                 "objects": {oid: {
-                    "name": obj["name"], "kind": obj["kind"],
-                    "condition": obj["condition"], "collected": obj["collected"],
+                    "name": names.get(oid, obj["name"]), "kind": obj["kind"],
+                    "condition": obj["condition"], "collected": obj.get("collected", True),
                     "anchor_id": obj["anchor_id"],
-                } for oid, obj in sorted(state["objects"].items())
+                } for oid, obj in sorted(objects.items())
                     if state["anchors"][obj["anchor_id"]]["room"] == room}}
 
 
