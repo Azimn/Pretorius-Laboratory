@@ -81,6 +81,9 @@ def _scene(db, host: dict, station: str) -> dict:
         if set(annex) & set(objects):
             raise Conflict("Duplicate physical identity")
         objects.update(annex)
+    from .book_custody import exists as custody_exists, effective_objects
+    if custody_exists(db):
+        objects = effective_objects(db)
     books = {}
     exists = db.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
@@ -91,8 +94,15 @@ def _scene(db, host: dict, station: str) -> dict:
     room, neighbors = STATIONS[station]
     known = ACCESSIBLE_FIXTURE.get(station)
     locally_visible = []
+    carrying = []
     for oid, obj in sorted(objects.items()):
         anchor_id = obj["anchor_id"]
+        if anchor_id is None:
+            if obj.get("held_by") == SUBJECT_ID:
+                carrying.append({"object_id": oid,
+                                 "appearance": books[oid]["edition"]["title"]
+                                 if oid in books else obj["name"]})
+            continue
         anchor = host["state"]["anchors"][anchor_id]
         if anchor["room"] != room:
             continue
@@ -116,6 +126,7 @@ def _scene(db, host: dict, station: str) -> dict:
         "perceived_features": fixture_labels[room],
         "at_hand_fixture": known,
         "nearby_objects": locally_visible,
+        "held_objects": carrying,
         "available_moves": sorted(neighbors),
         "access_level": "qualitative_local_not_global_survey",
         "observation_class": "offered_not_proof_of_subject_attention",
@@ -326,6 +337,18 @@ class EmbodiedAccess:
             access_actor=SUBJECT_ID,
         )
         return result
+
+    def take(self, book_id: str, *, event_id: str | None = None) -> dict:
+        self.verify()
+        from .book_custody import BookCustody
+        return BookCustody(self.habitat).act("take", book_id, event_id=event_id)
+
+    def put(self, book_id: str, anchor_id: str, *,
+            event_id: str | None = None) -> dict:
+        self.verify()
+        from .book_custody import BookCustody
+        return BookCustody(self.habitat).act(
+            "put", book_id, destination=anchor_id, event_id=event_id)
 
     def _fork_into(self, clone: SpatialHabitat) -> None:
         self.verify()
