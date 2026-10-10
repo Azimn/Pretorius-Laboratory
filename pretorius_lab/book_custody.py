@@ -265,7 +265,8 @@ class BookCustody:
                     "items": len(items), "lab_id": meta["lab_id"],
                     "world_epoch": meta["world_epoch"]}
 
-    def act(self, operation, book_id, *, destination=None, event_id=None):
+    def act(self, operation, book_id, *, destination=None, event_id=None,
+            expected_placement_revision=None):
         if operation not in {"take", "put", "operator_place"}:
             raise LabError("Unsupported handling action")
         self.verify()
@@ -293,6 +294,10 @@ class BookCustody:
                     {"anchor_id": e["action"]["anchor_id"], "held_by": None})
                 return {"event_id": event_id, "event_hash": prior[1],
                         "book_id": book_id, "location": historical_location}
+            if expected_placement_revision is not None and (
+                    type(expected_placement_revision) is not int or
+                    expected_placement_revision != meta["revision"]):
+                raise Conflict("Stale effective physical placement revision")
             # Recheck materialized cursors inside the same write transaction:
             # a concurrently accepted move is valid, a falsified head is not.
             pose_revision = body["revision"]
