@@ -18,7 +18,7 @@ class SpatialContinuityTests(unittest.TestCase):
         self.lab = SpatialHabitat.create(self.root / "sanctum.sqlite3")
 
     def test_seventh_book_of_third_shelf_is_exact(self):
-        first = self.lab.locate("book:007")
+        first = self.lab.inspect_object("book:007")
         self.assertEqual(first["anchor_id"], "shelf:3/slot:7")
         self.assertEqual(first["anchor"]["ordinal"], 7)
         self.assertEqual(first["anchor"]["parent"], "shelf:3")
@@ -26,12 +26,12 @@ class SpatialContinuityTests(unittest.TestCase):
         scan = self.lab.scan("shelf:3")["positions"]
         self.assertEqual(len(scan), 10)
         self.assertEqual(scan[6]["occupant"]["id"], "book:007")
-        again = SpatialHabitat(self.lab.path).locate("book:007")
+        again = SpatialHabitat(self.lab.path).inspect_object("book:007")
         self.assertEqual(first, again)
 
     def test_beaker_break_gather_and_place_corner_persists(self):
         self.lab.commit({"op": "break", "object_id": "beaker:001"})
-        broken = self.lab.locate("beaker:001")
+        broken = self.lab.inspect_object("beaker:001")
         self.assertEqual(broken["object"]["condition"], "broken")
         self.assertFalse(broken["object"]["collected"])
         with self.assertRaises(LabError):
@@ -42,7 +42,7 @@ class SpatialContinuityTests(unittest.TestCase):
                                   "anchor_id": "floor:corner:nw"})
         self.assertEqual(placed["committed_revision"], 3)
         morning = SpatialHabitat(self.lab.path)
-        location = morning.locate("beaker:001")
+        location = morning.inspect_object("beaker:001")
         self.assertEqual(location["object"]["condition"], "broken")
         self.assertEqual(location["anchor_id"], "floor:corner:nw")
         self.assertEqual(location["anchor"]["xyz_mm"], [100, 100, 0])
@@ -55,7 +55,7 @@ class SpatialContinuityTests(unittest.TestCase):
                    "anchor_id": "shelf:2/slot:9"}
         self.lab.commit(command)
         morning = SpatialHabitat(self.lab.path)
-        self.assertEqual(morning.locate("book:007")["anchor_id"], "shelf:2/slot:9")
+        self.assertEqual(morning.inspect_object("book:007")["anchor_id"], "shelf:2/slot:9")
         self.assertIsNone(morning.scan("shelf:3")["positions"][6]["occupant"])
         self.assertEqual(morning.scan("shelf:2")["positions"][8]["occupant"]["id"],
                          "book:007")
@@ -106,11 +106,11 @@ class SpatialContinuityTests(unittest.TestCase):
         self.assertNotEqual(parent["world_epoch"], info["world_epoch"])
         self.assertEqual(parent["home_id"], info["home_id"])
         self.assertEqual(clone.status()["parent"]["head_hash"], parent["head_hash"])
-        self.assertEqual(clone.locate("book:007")["object"]["revision"], 0)
+        self.assertEqual(clone.inspect_object("book:007")["object"]["revision"], 0)
         clone.commit({"op": "break", "object_id": "beaker:001"})
-        self.assertEqual(clone.locate("beaker:001")["object"]["condition"], "broken")
-        self.assertEqual(self.lab.locate("beaker:001")["object"]["condition"], "intact")
-        self.assertEqual(self.lab.locate("book:007")["anchor_id"], "shelf:2/slot:10")
+        self.assertEqual(clone.inspect_object("beaker:001")["object"]["condition"], "broken")
+        self.assertEqual(self.lab.inspect_object("beaker:001")["object"]["condition"], "intact")
+        self.assertEqual(self.lab.inspect_object("book:007")["anchor_id"], "shelf:2/slot:10")
         self.assertEqual(self.lab.verify()["revision"], 1)
 
     def test_checkpoint_and_backup_restore_keep_coordinates(self):
@@ -121,9 +121,9 @@ class SpatialContinuityTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.lab.backup_to(saved)
         saved_copy = SpatialHabitat(saved)
-        self.assertEqual(saved_copy.locate("book:007")["anchor"]["ordinal"], 7)
+        self.assertEqual(saved_copy.inspect_object("book:007")["anchor"]["ordinal"], 7)
         self.lab.commit({"op": "collect", "object_id": "beaker:001"})
-        self.assertEqual(saved_copy.locate("beaker:001")["object"]["collected"], False)
+        self.assertEqual(saved_copy.inspect_object("beaker:001")["object"]["collected"], False)
         self.assertEqual(self.lab.verify()["revision"], 2)
 
     def test_event_history_tampering_fails_closed(self):
@@ -131,7 +131,7 @@ class SpatialContinuityTests(unittest.TestCase):
         with sqlite3.connect(self.lab.path) as db:
             db.execute("UPDATE events SET prev_hash=? WHERE revision=1", ("f" * 64,))
         with self.assertRaises(Conflict):
-            self.lab.locate("beaker:001")
+            self.lab.inspect_object("beaker:001")
 
     def test_materialized_state_without_event_detected(self):
         with sqlite3.connect(self.lab.path) as db:
@@ -151,6 +151,10 @@ class SpatialContinuityTests(unittest.TestCase):
         self.assertEqual(scene["objects"]["book:007"]["anchor_id"], "shelf:3/slot:7")
         self.assertNotIn("book:999", scene["objects"])
         self.assertEqual(self.lab.observe("room:experiment")["objects"], {})
+        self.assertNotIn("xyz_mm", json.dumps(scene))
+        self.assertNotIn("xyz_mm", json.dumps(self.lab.scan("shelf:3")))
+        self.assertNotIn("xyz_mm", json.dumps(self.lab.locate("book:007")))
+        self.assertIn("xyz_mm", json.dumps(self.lab.inspect_object("book:007")))
 
     def test_concurrent_mutations_one_revision_wins(self):
         gate = threading.Barrier(3)
