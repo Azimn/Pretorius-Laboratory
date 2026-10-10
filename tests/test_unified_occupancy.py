@@ -154,6 +154,18 @@ class UnifiedOccupancyTests(unittest.TestCase):
         self.assertEqual(self.lab.locate("beaker:001")["location"]["fixture"], "shelf:3")
         self.assertEqual(child.locate("beaker:001")["location"]["fixture"], "bench:main")
 
+    def test_broken_scattered_beaker_cannot_be_moved_by_new_placement_route(self):
+        self.lab.commit({"op": "break", "object_id": "beaker:001"})
+        with self.assertRaises(LabError):
+            self.lab.commit({"op": "place", "object_id": "beaker:001",
+                             "anchor_id": "floor:corner:nw"})
+        self.assertEqual(self.custody.verify()["revision"], 0)
+        self.lab.commit({"op": "collect", "object_id": "beaker:001"})
+        self.lab.commit({"op": "place", "object_id": "beaker:001",
+                         "anchor_id": "floor:corner:nw"})
+        self.assertEqual(self.custody.verify()["revision"], 1)
+        self.assertEqual(self.lab.locate("beaker:001")["condition"], "broken")
+
     def test_stale_effective_placement_revision_fails_without_state_change(self):
         first = self.lab.commit({"op": "place", "object_id": "beaker:001",
                                  "anchor_id": "floor:corner:se"},
