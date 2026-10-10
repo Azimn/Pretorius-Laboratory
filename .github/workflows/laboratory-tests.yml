@@ -21,6 +21,7 @@ jobs:
       - name: Exercise persistent CLI restart and verification
         run: |
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" init
+          python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" observe
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" act open container:specimen
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" checkpoint
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" verify
