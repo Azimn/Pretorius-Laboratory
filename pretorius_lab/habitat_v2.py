@@ -379,6 +379,11 @@ class SpatialHabitat:
 
     def backup_to(self, destination: str | Path) -> dict:
         self.verify()
+        from .book_custody import BookCustody, exists as custody_exists
+        with self._open() as db:
+            has_custody = custody_exists(db)
+        if has_custody:
+            BookCustody(self).verify()
         from .embodied_access import EmbodiedAccess
         with self._open() as db:
             has_body = db.execute(
@@ -429,11 +434,18 @@ class SpatialHabitat:
             ObservationPort(SpatialHabitat(dest)).verify()
         if has_body:
             EmbodiedAccess(SpatialHabitat(dest)).verify()
+        if has_custody:
+            BookCustody(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
         m = self._verified_status()
+        from .book_custody import BookCustody, exists as custody_exists
+        with self._open() as db:
+            has_custody = custody_exists(db)
+        if has_custody:
+            BookCustody(self).verify()
         from .embodied_access import EmbodiedAccess
         with self._open() as db:
             has_body = db.execute(
@@ -471,20 +483,18 @@ class SpatialHabitat:
             obj["revision"] = 0
         clone = SpatialHabitat.create(destination, initial_state=cloned_state,
                                       parent=parent, home_id=m["home_id"])
-        # Register the fork's physical books before attaching their full text.
+        # Restore dependency order: physical annex -> actor pose -> custody
+        # -> book source editions -> observation ledger.
         if has_annex:
             ShelfAnnex(self)._fork_into(clone)
-        # Optional book domain has its own cursor and immutable source pages.
-        # It must follow the room into a fork rather than silently disappearing.
+        if has_body:
+            EmbodiedAccess(self)._fork_into(clone)
+        if has_custody:
+            BookCustody(self)._fork_into(clone)
         if has_books:
             BookLibrary(self)._fork_into(clone)
         if has_observations:
-            # Forks may inherit book contents but NEVER inherit purported
-            # first-person delivery receipts as events they witnessed.
             ObservationPort(clone).initialize()
-        if has_body:
-            # Copy position, not source-world perception, as a fork genesis.
-            EmbodiedAccess(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
