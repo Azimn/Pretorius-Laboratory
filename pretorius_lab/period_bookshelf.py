@@ -146,15 +146,33 @@ def import_collection(habitat: SpatialHabitat, bibliography: dict,
         prepared.append((entry, pages, hashlib.sha256(raw).hexdigest()))
     if dry_run:
         return {"validated": len(prepared), "installed": 0,
-                "source_bytes": sum(len(b) for _, p, b in []),
+                "source_bytes": sum(entry["source_bytes"] for entry, _, _ in prepared),
                 "digital_segments": sum(len(p) for _, p, _ in prepared)}
     prior = lib.catalog()
-    for entry, pages, _ in prepared:
-        if entry["book_id"] in prior:
-            raise Conflict("No overwrite: existing edition occupies " + entry["book_id"])
+    # Validate all preexisting slots before *any* new write. An interrupted
+    # identical corpus import may resume; a personally owned different
+    # book never gets replaced.
+    with habitat._open() as db:
+        records = db.execute("SELECT value FROM books_meta WHERE key='books'").fetchone()
+        installed = json.loads(records[0]) if records else {}
+    for entry, pages, source_sha256 in prepared:
+        old = installed.get(entry["book_id"])
+        if old is not None:
+            expected_id = f"gutenberg-{entry['gutenberg_url'].split('/')[-1]}-source-v1"
+            if (old["edition"]["edition_id"] != expected_id or
+                    old["edition"]["pages"] != pages or
+                    old["edition"]["title"] != entry["title"][:250]):
+                raise Conflict("Existing personal book differs from pinned corpus: "
+                               + entry["book_id"])
     results = []
     for entry, pages, source_sha256 in prepared:
         book_id = entry["book_id"]
+        if book_id in prior:
+            results.append({"book_id": book_id, "title": entry["title"],
+                            "digital_segments": len(pages), "sha256": source_sha256,
+                            "source_bytes": entry["source_bytes"],
+                            "result": "identical_previously_installed"})
+            continue
         reference = (
             f"{entry['gutenberg_url']} | "
             f"{entry['source_repository']}@{entry['source_commit']}/"
@@ -174,9 +192,12 @@ def import_collection(habitat: SpatialHabitat, bibliography: dict,
         )
         results.append({"book_id": book_id, "title": entry["title"],
                         "digital_segments": len(pages), "sha256": source_sha256,
-                        "source_bytes": entry["source_bytes"]})
+                        "source_bytes": entry["source_bytes"],
+                        "result": "installed"})
     lib.verify()
-    return {"installed": len(results), "books": results,
+    return {"installed": sum(v["result"] == "installed" for v in results),
+            "already_present": sum(v["result"] == "identical_previously_installed" for v in results),
+            "books": results,
             "shelf_digest": digest(results), "lab_id": host["lab_id"],
             "world_epoch": host["world_epoch"]}
 
