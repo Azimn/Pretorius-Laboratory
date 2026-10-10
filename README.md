@@ -32,6 +32,23 @@ The read-only `observe` command provides a host-verified, machine-readable scene
 
 The same database can be reopened in the next session without reinitialization. The open/close, move, clock and notebook operations are constrained by fixed physical rules. There is no arbitrary state write verb.
 
+## Precision spatial continuity (opt-in v2)
+
+The original v0.1 host remains intact. A new, isolated spatial world prototype adds stable bookshelf coordinates, shelf slot ordinals, capacity-one occupancy, physical object condition and a persistent broken-beaker fixture. Its event-sourced SQLite file must be initialized separately; it is **not** a silent migration of an already-lived Pretorius history.
+
+~~~bash
+python -m pretorius_lab.habitat_v2 --db data/sanctum-v2.sqlite3 init
+python -m pretorius_lab.habitat_v2 --db data/sanctum-v2.sqlite3 locate book:007
+python -m pretorius_lab.habitat_v2 --db data/sanctum-v2.sqlite3 act break beaker:001
+python -m pretorius_lab.habitat_v2 --db data/sanctum-v2.sqlite3 act collect beaker:001
+python -m pretorius_lab.habitat_v2 --db data/sanctum-v2.sqlite3 act place beaker:001 floor:corner:nw
+python -m pretorius_lab.habitat_v2 --db data/sanctum-v2.sqlite3 verify
+~~~
+
+On the next session the beaker remains broken in the northwest corner, and book:007 stays on the third shelf in the seventh position unless another accepted event moved it. Experiment forks receive a separate world epoch and cannot change their canonical parent. This is a discrete, precisely anchored physics model, not full rigid-body dynamics, locomotion or cognitive memory.
+
+See [Spatial Habitat v2: exact world-anchored continuity](docs/SPATIAL_HABITAT_V2_AND_CONTINUITY_CONTRACT.md) for persistence invariants, source-monitoring, migration boundaries and proposed behavior tests.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash
