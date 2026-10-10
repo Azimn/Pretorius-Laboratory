@@ -18,7 +18,7 @@ class VictorianShelfTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.home = SpatialHabitat.create(Path(self.temp.name) / "lab.sqlite3")
         self.body = ("Anatomical observations are not sufficient evidence of memory. "
-                     "A permanent physical object must survive a fresh session.\n") * 60
+                     "A permanent physical object must survive a fresh session.\n") * 160
         self.payload = (
             "*** START OF THIS PROJECT GUTENBERG EBOOK\n"
             "EXAMPLE HISTORICAL DOCUMENT ***\n\n"
