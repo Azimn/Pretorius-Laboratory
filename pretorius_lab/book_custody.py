@@ -293,7 +293,7 @@ class BookCustody:
                     if operation == "take" else
                     {"anchor_id": e["action"]["anchor_id"], "held_by": None})
                 return {"event_id": event_id, "event_hash": prior[1],
-                        "book_id": book_id, "location": historical_location}
+                        "object_id": book_id, "location": historical_location}
             if expected_placement_revision is not None and (
                     type(expected_placement_revision) is not int or
                     expected_placement_revision != meta["revision"]):
