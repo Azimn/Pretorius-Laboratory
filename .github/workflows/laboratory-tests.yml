@@ -27,3 +27,17 @@ jobs:
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" verify
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" backup "$RUNNER_TEMP/backup.sqlite3"
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" restore "$RUNNER_TEMP/backup.sqlite3" "$RUNNER_TEMP/recovered.sqlite3"
+
+      - name: Exercise exact spatial continuity across CLI sessions
+        run: |
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" init
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" locate book:007
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" scan shelf:3
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" act break beaker:001
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" act collect beaker:001
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" act place beaker:001 floor:corner:nw
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" checkpoint
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" verify
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" fork "$RUNNER_TEMP/fork.sqlite3"
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" backup "$RUNNER_TEMP/home-backup.sqlite3"
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home-backup.sqlite3" verify
