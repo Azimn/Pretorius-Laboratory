@@ -324,6 +324,12 @@ class BookCustody:
             effective = effective_objects(db)
             before = effective[book_id]["anchor_id"]
             if operation == "operator_place":
+                # Preserve lower-layer condition invariants even when the new
+                # placement is recorded in the custody domain.
+                obj = raw[book_id]
+                if (obj["kind"] == "glass_beaker" and
+                        obj["condition"] == "broken" and not obj["collected"]):
+                    raise LabError("Scattered glass fragments must be collected before moving")
                 if before is None or effective[book_id].get("held_by") is not None:
                     raise Conflict("Cannot operator-relocate a book held by the actor")
                 if destination not in host["state"]["anchors"] or before == destination:
