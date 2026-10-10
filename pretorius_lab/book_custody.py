@@ -268,8 +268,31 @@ class BookCustody:
                 if e["action"]["op"] != operation or e["action"]["book_id"] != book_id or (
                         operation == "put" and e["action"]["anchor_id"] != destination):
                     raise Conflict("Handling event id reused for a different operation")
+                historical_location = ({"anchor_id": None, "held_by": SUBJECT_ID}
+                    if operation == "take" else
+                    {"anchor_id": e["action"]["anchor_id"], "held_by": None})
                 return {"event_id": event_id, "event_hash": prior[1],
-                        "book_id": book_id, "location": meta["items"].get(book_id)}
+                        "book_id": book_id, "location": historical_location}
+            # Recheck materialized cursors inside the same write transaction:
+            # a concurrently accepted move is valid, a falsified head is not.
+            pose_revision = body["revision"]
+            if pose_revision == 0:
+                pose_hash = GENESIS_HASH
+                pose_station = body["initial_station"]
+            else:
+                accepted_pose = db.execute(
+                    "SELECT envelope,event_hash FROM embodied_events WHERE revision=?",
+                    (pose_revision,)).fetchone()
+                pose_hash = accepted_pose[1] if accepted_pose else None
+                pose_station = (json.loads(accepted_pose[0])["after_station"]
+                                if accepted_pose else None)
+            if (pose_hash, pose_station) != (body["head_hash"], body["station"]):
+                raise Conflict("The body is not at an accepted pose")
+            recorded = (db.execute("SELECT event_hash FROM custody_events WHERE revision=?",
+                                   (meta["revision"],)).fetchone()
+                        if meta["revision"] else None)
+            if (recorded[0] if recorded else GENESIS_HASH) != meta["head_hash"]:
+                raise Conflict("Physical custody event head invalid")
             if book_id not in raw or raw[book_id]["kind"] != "book":
                 raise LabError("Unknown physical book")
             effective = effective_objects(db)
