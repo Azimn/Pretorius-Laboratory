@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pretorius-laboratory"
+version = "0.1.0"
+description = "Persistent deterministic experimental laboratory for Pretorius"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+pretorius-lab = "pretorius_lab.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["pretorius_lab*"]
