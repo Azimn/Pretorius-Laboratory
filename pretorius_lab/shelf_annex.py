@@ -174,8 +174,6 @@ class ShelfAnnex:
                     "world_epoch": meta["world_epoch"]}
 
     def items(self):
-        if expected_placement_revision is not None:
-            raise LabError("Placement revision guard requires an active custody world")
         self.verify()
         with self.habitat._open() as db:
             return copy.deepcopy(_meta(db)["items"])
@@ -203,6 +201,8 @@ class ShelfAnnex:
                 expected_placement_revision=expected_placement_revision)
             return {**receipt, "domain": "effective_physical_placement",
                     "legacy_annex_revision_unchanged": True}
+        if expected_placement_revision is not None:
+            raise LabError("Placement revision guard requires an active custody world")
         self.verify()
         with self.habitat._open() as db:
             db.execute("BEGIN IMMEDIATE")
