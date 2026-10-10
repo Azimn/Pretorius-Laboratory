@@ -129,6 +129,32 @@ The source-backed 17-book test fixture is also compatible with this port (move t
 
 See [Position-Gated Subject Access](docs/EMBODIED_SUBJECT_ACCESS_2026-10-10.md) for its event contract, limitations, restart/fork tests and next physical milestone: genuine pickup/holding/return of books with single-world occupancy.
 
+## Persistent physical book handling: take, carry, put
+
+The optional **physical custody ledger** now lets the local embodied research subject remove a real book from its shelf, carry that same stable book identity between stations, and put it on a vacant shelf, bench or supported floor position. This is an append-only world-epoch-scoped physical transfer, not a narrative pretending a moved book is somewhere while the database still shows it on a shelf.
+
+After pickup, the old shelf position is empty in the effective physical world. The book appears in the actor's hands, and source-backed page reading and bookmarks continue to work while held or at a nearby surface. Exactly one book may be carried at a time. Putting one down requires that the actor be at the destination, and an occupied anchor cannot receive a second object. The existing bench initially holds a beaker, so a lab operator must first relocate that beaker before using its left position for a book.
+
+~~~bash
+python -m pretorius_lab.habitat_v2 --db data/handling-test.sqlite3 init
+python -m pretorius_lab.book_cli --db data/handling-test.sqlite3 init
+python -m pretorius_lab.book_cli --db data/handling-test.sqlite3 install book:007 fixtures/DEMO_BOOK_007.json
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 init
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 init-custody
+python -m pretorius_lab.habitat_v2 --db data/handling-test.sqlite3 act place beaker:001 floor:corner:se
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 go station:center
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 go station:shelf:3
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 take book:007
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 go station:center
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 go station:bench
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 put book:007 bench:main/position:left
+python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 verify-custody
+~~~
+
+Book locations, custody receipts, true full-text editions, bookmarks and actor position persist across restart and verified backups; sandbox forks receive separate world identities with copied current positions rather than invented earlier experiences. Original spatial event hashes remain untouched. The larger 17-book workflow also tests actual full-text *Isis Unveiled* handling with a real source-edition marker.
+
+See [Persistent Book Custody](docs/BOOK_CUSTODY_AND_PERSISTENT_HANDLING_2026-10-10.md) for the typed transfer contract and limitations. This is discrete one-slot occupancy, not simulated hands, dimensions, collisions, damage or an actual autonomous cognitive subject. Historic lower-level spatial reducers still reserve the original fixture anchor for books transferred by the custody overlay, although its effective world views correctly show that shelf empty; normalizing every old reducer is a future gate.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash
