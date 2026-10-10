@@ -65,6 +65,6 @@ The current CLI trusts its local operator. It has **no network authentication, c
 
 The Doctor Lives remains responsible for Pretorius's identity and cognition. This environment must not silently fabricate first-person world memories from offline experiments. Frankenstein Village retains authority over players, masks, rooms, doors, consent and its event ledger. The existing dark leased shop with its OPENING SOON sign remains untouched. No user-facing room, automatic Pretorius arrival or invited-alpha scope change is implied.
 
-See [Executable architecture and trust contract](docs/ARCHITECTURE.md), [The Doctor Lives tracking issue #46](https://github.com/Azimn/The-Doctor-Lives/issues/46), and [Frankenstein Village tracking issue #48](https://github.com/Azimn/frankenstein-village/issues/48).
+See the [MMO persistence and living-habitat research note](docs/MMO_PERSISTENT_HABITAT_STUDY_2026-10-10.md) for the proposed sanctuary and experimental-chamber separation. See [Executable architecture and trust contract](docs/ARCHITECTURE.md), [The Doctor Lives tracking issue #46](https://github.com/Azimn/The-Doctor-Lives/issues/46), and [Frankenstein Village tracking issue #48](https://github.com/Azimn/frankenstein-village/issues/48).
 
 The next step after this foundation is source-level parity with Stage 04, plus a rigorously authenticated and explicitly non-public shadow projection. Until that review, there is no claim of direct Stage 04 compatibility or synchronized game integration.
