@@ -184,6 +184,21 @@ class ShelfAnnex:
         event_id = event_id or str(uuid.uuid4())
         if not isinstance(event_id, str) or not 1 <= len(event_id) <= 128:
             raise LabError("Invalid annex event ID")
+        # A live custody world has one effective placement authority. Existing
+        # annex history remains replayed by the old reducer, unchanged.
+        from .book_custody import BookCustody, exists as custody_exists
+        with self.habitat._open() as source:
+            unified = custody_exists(source)
+        if unified and isinstance(action, dict) and action.get("op") == "move":
+            if actor != "local_operator":
+                raise LabError("Subject movement must use bodily custody tools")
+            if set(action) != {"op", "book_id", "anchor_id"}:
+                raise LabError("Malformed annex relocation")
+            receipt = BookCustody(self.habitat).act(
+                "operator_place", action["book_id"],
+                destination=action["anchor_id"], event_id=event_id)
+            return {**receipt, "domain": "effective_physical_placement",
+                    "legacy_annex_revision_unchanged": True}
         self.verify()
         with self.habitat._open() as db:
             db.execute("BEGIN IMMEDIATE")
