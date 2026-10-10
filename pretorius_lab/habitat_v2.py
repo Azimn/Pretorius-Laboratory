@@ -368,6 +368,13 @@ class SpatialHabitat:
 
     def backup_to(self, destination: str | Path) -> dict:
         self.verify()
+        from .embodied_access import EmbodiedAccess
+        with self._open() as db:
+            has_body = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='embodied_meta'"
+            ).fetchone() is not None
+        if has_body:
+            EmbodiedAccess(self).verify()
         from .shelf_annex import ShelfAnnex
         with self._open() as db:
             has_annex = ShelfAnnex.exists(db)
@@ -409,11 +416,20 @@ class SpatialHabitat:
             BookLibrary(SpatialHabitat(dest)).verify()
         if has_observations:
             ObservationPort(SpatialHabitat(dest)).verify()
+        if has_body:
+            EmbodiedAccess(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
         m = self._verified_status()
+        from .embodied_access import EmbodiedAccess
+        with self._open() as db:
+            has_body = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='embodied_meta'"
+            ).fetchone() is not None
+        if has_body:
+            EmbodiedAccess(self).verify()
         from .shelf_annex import ShelfAnnex
         with self._open() as source:
             has_annex = ShelfAnnex.exists(source)
@@ -455,6 +471,9 @@ class SpatialHabitat:
             # Forks may inherit book contents but NEVER inherit purported
             # first-person delivery receipts as events they witnessed.
             ObservationPort(clone).initialize()
+        if has_body:
+            # Copy position, not source-world perception, as a fork genesis.
+            EmbodiedAccess(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
