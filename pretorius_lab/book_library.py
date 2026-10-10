@@ -247,6 +247,34 @@ class BookLibrary:
                         raise Conflict("Read-page receipt does not match the edition")
                 elif entry.get("page_receipt") is not None:
                     raise Conflict("Non-reading event claimed a page receipt")
+                access = entry.get("access_proof")
+                if access is not None:
+                    from .embodied_access import SUBJECT_ID, STATIONS
+                    if (access.get("subject_id") != SUBJECT_ID or
+                            entry["actor"] != "pretorius_research" or
+                            access.get("body_station") not in STATIONS):
+                        raise Conflict("Illegal subject book access attribution")
+                    b_rev = access.get("body_revision")
+                    if type(b_rev) is not int or b_rev < 0:
+                        raise Conflict("Invalid historical body step")
+                    if b_rev == 0:
+                        brow = db.execute(
+                            "SELECT value FROM embodied_meta WHERE key='initial_station'"
+                        ).fetchone()
+                        bhead = GENESIS_HASH
+                        bstation = json.loads(brow[0]) if brow else None
+                    else:
+                        brow = db.execute(
+                            "SELECT envelope,event_hash FROM embodied_events WHERE revision=?",
+                            (b_rev,)).fetchone()
+                        bhead = brow[1] if brow else None
+                        bstation = json.loads(brow[0])["after_station"] if brow else None
+                    if (bhead != access.get("body_cursor") or
+                            bstation != access.get("body_station")):
+                        raise Conflict("Book operation has no real historical actor pose")
+                    if (access.get("physical_anchor") not in
+                            host_proof["state"]["anchors"]):
+                        raise Conflict("Subject book receipt references no physical anchor")
                 prev, revision = event_hash, n
             if (revision, prev, books) != (m["revision"], m["head_hash"], m["books"]):
                 raise Conflict("Book ledger materialized state diverged")
@@ -269,7 +297,7 @@ class BookLibrary:
         return row[0] if row else None
 
     def _commit(self, action: dict, *, actor: str = "local_operator",
-                event_id: str | None = None) -> dict:
+                event_id: str | None = None, access_actor: str | None = None) -> dict:
         if actor not in TRUSTED_ACTORS:
             raise LabError("Untrusted local actor label")
         event_id = event_id or str(uuid.uuid4())
@@ -288,7 +316,8 @@ class BookLibrary:
                                   (event_id,)).fetchone()
             if existing:
                 previous = json.loads(existing[0])
-                if previous["action"] != action or previous["actor"] != actor:
+                if (previous["action"] != action or previous["actor"] != actor or
+                        bool(previous.get("access_proof")) != bool(access_actor)):
                     raise Conflict("Book event ID used for a different operation")
                 db.execute("COMMIT")
                 return {**previous, "event_hash": existing[1]}
@@ -301,6 +330,46 @@ class BookLibrary:
                     obj = json.loads(row[0]).get(physical_id) if row else None
             if not obj or obj["kind"] != "book":
                 raise LabError("A source-backed book must exist as a physical world object")
+            access_proof = None
+            if access_actor is not None:
+                # Same SQLite write transaction as the actual page action.
+                # Local operator APIs are still engineer privileged; only the
+                # EmbodiedAccess adapter is intended for a subject runtime.
+                from .embodied_access import SUBJECT_ID
+                if access_actor != SUBJECT_ID or actor != "pretorius_research":
+                    raise LabError("Invalid subject access class")
+                row = db.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='embodied_meta'"
+                ).fetchone()
+                if not row:
+                    raise LabError("No persistent actor embodiment")
+                body = {k: json.loads(v) for k, v in db.execute(
+                    "SELECT key,value FROM embodied_meta")}
+                if (body["lab_id"], body["world_epoch"], body["subject_id"]) != (
+                        host["lab_id"], host["world_epoch"], SUBJECT_ID):
+                    raise Conflict("Body and book belong to different laboratories")
+                anchor = host["state"]["anchors"][obj["anchor_id"]]
+                required = ("station:" + anchor["parent"]
+                            if anchor["parent"].startswith("shelf:") else None)
+                if not required or body["station"] != required:
+                    raise LabError("Approach the book's current shelf before interacting")
+                from .shelf_annex import ShelfAnnex
+                annex_revision, annex_cursor = 0, GENESIS_HASH
+                if ShelfAnnex.exists(db):
+                    existing_annex = {k: json.loads(v) for k, v in db.execute(
+                        "SELECT key,value FROM annex_meta")}
+                    annex_revision, annex_cursor = (
+                        existing_annex["revision"], existing_annex["head_hash"])
+                access_proof = {
+                    "subject_id": SUBJECT_ID,
+                    "body_station": body["station"],
+                    "body_revision": body["revision"],
+                    "body_cursor": body["head_hash"],
+                    "physical_anchor": obj["anchor_id"],
+                    "annex_revision": annex_revision,
+                    "annex_cursor": annex_cursor,
+                    "scope": "local_position_guard_not_attested_subject_experience",
+                }
             updated = _apply(m["books"], action, sandbox=m["mode"] == "sandbox")
             page_receipt = None
             if action["op"] == "read":
@@ -321,6 +390,7 @@ class BookLibrary:
                 "physical_world_revision": host["revision"],
                 "physical_event_cursor": host["head_hash"],
                 "page_receipt": page_receipt,
+                "access_proof": access_proof,
                 "previous_hash": m["head_hash"], "recorded_utc": _utc(),
             }
             h = digest(entry)
@@ -353,7 +423,7 @@ class BookLibrary:
 
     def operate(self, book_id: str, op: str, *, direction: int | None = None,
                 bookmark_id: str | None = None, actor: str = "local_operator",
-                event_id: str | None = None) -> dict:
+                event_id: str | None = None, access_actor: str | None = None) -> dict:
         action = {"op": op, "book_id": book_id}
         if op == "turn":
             action["direction"] = direction
@@ -361,7 +431,8 @@ class BookLibrary:
             action["bookmark_id"] = bookmark_id
         elif direction is not None or bookmark_id is not None:
             raise LabError("Extraneous book action parameter")
-        result = self._commit(action, actor=actor, event_id=event_id)
+        result = self._commit(action, actor=actor, event_id=event_id,
+                              access_actor=access_actor)
         if op != "read":
             return {"book_id": book_id, "operation": op,
                     "library_revision": result["revision"], "event_id": result["event_id"]}
