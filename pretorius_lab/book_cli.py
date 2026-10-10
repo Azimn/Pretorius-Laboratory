@@ -27,7 +27,7 @@ def main(argv=None):
     turn = subs.add_parser("turn")
     turn.add_argument("book_id")
     turn.add_argument("direction", type=int, choices=(-1, 1))
-    for op in ("mark", "unmark"):
+    for op in ("mark", "unmark", "open_mark"):
         s = subs.add_parser(op)
         s.add_argument("book_id")
         s.add_argument("bookmark_id")
@@ -49,7 +49,7 @@ def main(argv=None):
             out = lib.install(args.book_id, **source)
         elif args.command == "turn":
             out = lib.operate(args.book_id, "turn", direction=args.direction)
-        elif args.command in ("mark", "unmark"):
+        elif args.command in ("mark", "unmark", "open_mark"):
             out = lib.operate(args.book_id, args.command,
                               bookmark_id=args.bookmark_id)
         else:
