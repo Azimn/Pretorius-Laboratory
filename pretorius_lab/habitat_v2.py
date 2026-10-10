@@ -239,12 +239,36 @@ class SpatialHabitat:
         return {k: copy.deepcopy(v) for k, v in m.items() if k != "genesis_state"}
 
     def commit(self, action: dict, *, actor: str = "local_operator",
-               event_id: str | None = None, expected_revision: int | None = None) -> dict:
+               event_id: str | None = None, expected_revision: int | None = None,
+               expected_placement_revision: int | None = None) -> dict:
         if actor not in TRUSTED_ACTORS:
             raise LabError("Untrusted local actor label")
         event_id = event_id or str(uuid.uuid4())
         if not isinstance(event_id, str) or not 1 <= len(event_id) <= 128:
             raise LabError("Invalid event id")
+        # Once custody is opted into this world, new trusted physical placements
+        # use effective occupancy, not stale reservations of raw v2 genesis.
+        # Historical v2 events are NEVER rewritten or replayed differently.
+        from .book_custody import BookCustody, exists as custody_exists
+        with self._open() as check:
+            unified = custody_exists(check)
+        if unified and isinstance(action, dict) and action.get("op") == "place":
+            if actor != "local_operator":
+                raise LabError("Subject movement must use the embodied access port")
+            if set(action) != {"op", "object_id", "anchor_id"}:
+                raise LabError("Malformed unified placement command")
+            if expected_revision is not None:
+                revision = self.verify()["revision"]
+                if type(expected_revision) is not int or expected_revision != revision:
+                    raise Conflict("Stale original-world revision")
+            receipt = BookCustody(self).act(
+                "operator_place", action["object_id"],
+                destination=action["anchor_id"], event_id=event_id,
+                expected_placement_revision=expected_placement_revision)
+            return {**receipt, "domain": "effective_physical_placement",
+                    "legacy_world_revision_unchanged": True}
+        if expected_placement_revision is not None:
+            raise LabError("Placement revision guard requires an active custody placement")
         # Validate optional physical annex before mutating the primary host.
         from .shelf_annex import ShelfAnnex
         with self._open() as check:

@@ -178,12 +178,31 @@ class ShelfAnnex:
         with self.habitat._open() as db:
             return copy.deepcopy(_meta(db)["items"])
 
-    def commit(self, action, *, actor="local_operator", event_id=None):
+    def commit(self, action, *, actor="local_operator", event_id=None,
+               expected_placement_revision=None):
         if actor not in TRUSTED_ACTORS:
             raise LabError("Untrusted annex actor")
         event_id = event_id or str(uuid.uuid4())
         if not isinstance(event_id, str) or not 1 <= len(event_id) <= 128:
             raise LabError("Invalid annex event ID")
+        # A live custody world has one effective placement authority. Existing
+        # annex history remains replayed by the old reducer, unchanged.
+        from .book_custody import BookCustody, exists as custody_exists
+        with self.habitat._open() as source:
+            unified = custody_exists(source)
+        if unified and isinstance(action, dict) and action.get("op") == "move":
+            if actor != "local_operator":
+                raise LabError("Subject movement must use bodily custody tools")
+            if set(action) != {"op", "book_id", "anchor_id"}:
+                raise LabError("Malformed annex relocation")
+            receipt = BookCustody(self.habitat).act(
+                "operator_place", action["book_id"],
+                destination=action["anchor_id"], event_id=event_id,
+                expected_placement_revision=expected_placement_revision)
+            return {**receipt, "domain": "effective_physical_placement",
+                    "legacy_annex_revision_unchanged": True}
+        if expected_placement_revision is not None:
+            raise LabError("Placement revision guard requires an active custody world")
         self.verify()
         with self.habitat._open() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -233,9 +252,11 @@ class ShelfAnnex:
         return self.commit({"op": "register", "book_id": oid,
                             "anchor_id": anchor_id, "name": name}, event_id=event_id)
 
-    def move(self, oid, anchor_id, *, event_id=None):
+    def move(self, oid, anchor_id, *, event_id=None,
+             expected_placement_revision=None):
         return self.commit({"op": "move", "book_id": oid,
-                            "anchor_id": anchor_id}, event_id=event_id)
+                            "anchor_id": anchor_id}, event_id=event_id,
+                           expected_placement_revision=expected_placement_revision)
 
     def _fork_into(self, clone):
         self.verify()

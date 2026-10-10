@@ -81,7 +81,9 @@ class BookCustodyTests(unittest.TestCase):
                          "An unchanging second leaf.")
         self.assertEqual(self.books.catalog("book:007")["book:007"]["bookmarks"],
                          {"paper-flag": 2})
-        self.assertEqual(self.custody.verify()["revision"], 2)
+        # Clearing the bench is now an accepted physical custody placement
+        # as well as the two subsequent take/put handling events.
+        self.assertEqual(self.custody.verify()["revision"], 3)
 
     def test_subject_can_read_carried_book_but_not_other_distant_book(self):
         self.take_seventh()
@@ -158,7 +160,8 @@ class BookCustodyTests(unittest.TestCase):
         self.lab.backup_to(backup)
         restored = SpatialHabitat(backup)
         self.assertEqual(restored.locate("book:007")["location"]["fixture"], "bench:main")
-        self.assertEqual(BookCustody(restored).verify()["revision"], 2)
+        # Operator workbench clearance is also recorded in the unified ledger.
+        self.assertEqual(BookCustody(restored).verify()["revision"], 3)
         branchfile = self.root / "experiment.sqlite3"
         self.lab.fork_to(branchfile)
         fork = SpatialHabitat(branchfile)
