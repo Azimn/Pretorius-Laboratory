@@ -154,6 +154,39 @@ class UnifiedOccupancyTests(unittest.TestCase):
         self.assertEqual(self.lab.locate("beaker:001")["location"]["fixture"], "shelf:3")
         self.assertEqual(child.locate("beaker:001")["location"]["fixture"], "bench:main")
 
+    def test_stale_effective_placement_revision_fails_without_state_change(self):
+        first = self.lab.commit({"op": "place", "object_id": "beaker:001",
+                                 "anchor_id": "floor:corner:se"},
+                                expected_placement_revision=0)
+        self.assertEqual(first["domain"], "effective_physical_placement")
+        self.assertEqual(self.custody.verify()["revision"], 1)
+        with self.assertRaises(Conflict):
+            self.lab.commit({"op": "place", "object_id": "beaker:001",
+                             "anchor_id": "floor:corner:nw"},
+                            expected_placement_revision=0)
+        self.assertEqual(self.custody.verify()["revision"], 1)
+        self.assertEqual(self.lab.locate("beaker:001")["location"]["anchor_id"],
+                         "floor:corner:se")
+        after = self.lab.commit({"op": "place", "object_id": "beaker:001",
+                                 "anchor_id": "floor:corner:nw"},
+                                expected_placement_revision=1)
+        self.assertEqual(self.custody.verify()["revision"], 2)
+        self.assertNotEqual(first["event_hash"], after["event_hash"])
+
+    def test_annex_optimistic_revision_guard_is_shared_with_core(self):
+        annex = ShelfAnnex(self.lab)
+        annex.initialize()
+        annex.register("book:008", "shelf:1/slot:1", "Occult volume")
+        self.lab.commit({"op": "place", "object_id": "beaker:001",
+                         "anchor_id": "floor:corner:se"})
+        with self.assertRaises(Conflict):
+            annex.move("book:008", "shelf:2/slot:1",
+                       expected_placement_revision=0)
+        good = annex.move("book:008", "shelf:2/slot:1",
+                          expected_placement_revision=1)
+        self.assertEqual(good["domain"], "effective_physical_placement")
+        self.assertEqual(self.custody.verify()["revision"], 2)
+
     def test_non_operator_cannot_override_custody_by_admin_place(self):
         with self.assertRaises(LabError):
             self.lab.commit({"op": "place", "object_id": "book:007",
