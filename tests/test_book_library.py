@@ -48,7 +48,7 @@ class BookPersistenceTests(unittest.TestCase):
         self.books.operate("book:007", "turn", direction=1)
         second = self.books.operate("book:007", "read")
         self.assertEqual(second["page_text"], PAGES[1])
-        self.assertEqual(BookLibrary(SpatialHabitat(self.home.path)).verify()["revision"], 4)
+        self.assertEqual(BookLibrary(SpatialHabitat(self.home.path)).verify()["revision"], 5)
 
     def test_bookmark_keeps_place_through_restart(self):
         self.install()
