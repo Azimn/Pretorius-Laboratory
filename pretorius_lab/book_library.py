@@ -273,7 +273,7 @@ class BookLibrary:
                             bstation != access.get("body_station")):
                         raise Conflict("Book operation has no real historical actor pose")
                     if (access.get("physical_anchor") not in
-                            host_proof["state"]["anchors"]):
+                            SpatialHabitat._metadata(db)["state"]["anchors"]):
                         raise Conflict("Subject book receipt references no physical anchor")
                 prev, revision = event_hash, n
             if (revision, prev, books) != (m["revision"], m["head_hash"], m["books"]):
