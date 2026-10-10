@@ -386,6 +386,15 @@ class SpatialHabitat:
             obj["revision"] = 0
         clone = SpatialHabitat.create(destination, initial_state=cloned_state,
                                       parent=parent, home_id=m["home_id"])
+        # Optional book domain has its own cursor and immutable source pages.
+        # It must follow the room into a fork rather than silently disappearing.
+        with self._open() as source:
+            has_books = source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
+            ).fetchone() is not None
+        if has_books:
+            from .book_library import BookLibrary
+            BookLibrary(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
