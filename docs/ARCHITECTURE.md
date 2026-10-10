@@ -32,6 +32,10 @@ SQLite native backup produces a transactionally consistent copy even with WAL fi
 
 The explicit snapshot table ties scene JSON and state digest to a revision and event hash. The first snapshot is revision zero; further checkpoints are operator-triggered. The current build makes no destructive reset command. Research experiments should use restored clones rather than rewinding or rewriting the authoritative history.
 
+## Research-side perception port
+
+The `pretorius_lab.perception.observe(laboratory)` function and CLI `observe` command produce a deterministic, read-only source-scoped scene. The observation verifies its source event history before reporting the lab ID, epoch, revision, event cursor, physical objects visible without crossing a sealed container, and host-evaluated eligible action examples. It never includes private notebook entry text. The observation digest is a local consistency reference, not a remote cryptographic signature. This port does not create a player avatar or certify first-person witnessing. A future Pretorius cognitive adapter may ingest this source with provenance and request an action, but only the host can commit the action.
+
 ## Trust and safety boundaries
 
 Only trusted local command callers are supported. The local actor allowlist documents possible research principals but is **not authentication**. There is no HTTP endpoint, signature/MAC, credential storage, network sync, public viewer, consent authority, or Evennia adapter. All recorded events use visibility=research_private. Notebook text is private research data and cannot be projected or published by default.
