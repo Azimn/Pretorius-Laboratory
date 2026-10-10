@@ -239,7 +239,8 @@ class SpatialHabitat:
         return {k: copy.deepcopy(v) for k, v in m.items() if k != "genesis_state"}
 
     def commit(self, action: dict, *, actor: str = "local_operator",
-               event_id: str | None = None, expected_revision: int | None = None) -> dict:
+               event_id: str | None = None, expected_revision: int | None = None,
+               expected_placement_revision: int | None = None) -> dict:
         if actor not in TRUSTED_ACTORS:
             raise LabError("Untrusted local actor label")
         event_id = event_id or str(uuid.uuid4())
@@ -262,9 +263,12 @@ class SpatialHabitat:
                     raise Conflict("Stale original-world revision")
             receipt = BookCustody(self).act(
                 "operator_place", action["object_id"],
-                destination=action["anchor_id"], event_id=event_id)
+                destination=action["anchor_id"], event_id=event_id,
+                expected_placement_revision=expected_placement_revision)
             return {**receipt, "domain": "effective_physical_placement",
                     "legacy_world_revision_unchanged": True}
+        if expected_placement_revision is not None:
+            raise LabError("Placement revision guard requires an active custody placement")
         # Validate optional physical annex before mutating the primary host.
         from .shelf_annex import ShelfAnnex
         with self._open() as check:
