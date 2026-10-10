@@ -35,7 +35,23 @@ def git_blob_digest(payload: bytes) -> str:
 
 def genuine_text(blob: bytes) -> str:
     """Remove ebook distribution wrapping, never invent or summarize words."""
-    text = blob.decode("utf-8-sig")
+    # GITenberg preserves some older Gutenberg ISO-8859-1/Windows-1252
+    # source files. The ORIGINAL bytes remain SHA/Git-blob pinned.
+    try:
+        text = blob.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        metadata = blob[:8000].decode("ascii", errors="ignore").lower()
+        if "character set encoding: iso-8859-1" in metadata:
+            text = blob.decode("latin-1")
+        else:
+            # Old Gutenberg text frequently has Windows-1252 punctuation,
+            # including files whose headers omit an encoding declaration.
+            # This fallback is deterministic and the original Git blob bytes
+            # remain pinned. Do not claim exact historical typography.
+            try:
+                text = blob.decode("cp1252")
+            except UnicodeDecodeError as exc:
+                raise LabError("Cannot decode pinned source as UTF-8, ISO-8859-1 or CP1252") from exc
     start, end = GUTENBERG_START.search(text), GUTENBERG_END.search(text)
     if not start or not end or start.end() >= end.start():
         raise LabError("Unknown Gutenberg wrapper; refuse to invent book boundaries")
@@ -108,7 +124,7 @@ def read_source(entry: dict) -> bytes:
 
 def import_collection(habitat: SpatialHabitat, bibliography: dict,
                       *, setting_year: int = 1890, fetcher=read_source,
-                      dry_run: bool = False) -> dict:
+                      dry_run: bool = False, register_annex: bool = False) -> dict:
     if not isinstance(bibliography, dict) or bibliography.get("schema") != CORPUS_SCHEMA:
         raise LabError("Unsupported bookshelf catalog format")
     if type(setting_year) is not int or not 1890 <= setting_year <= 1899:
@@ -123,9 +139,18 @@ def import_collection(habitat: SpatialHabitat, bibliography: dict,
     host = habitat._verified_status()
     if host["mode"] != "canonical":
         raise Conflict("Install period bookshelf into an explicitly selected canonical fixture only")
+    from .shelf_annex import physical_book_objects, ShelfAnnex
+    original = physical_book_objects(habitat)
+    missing = []
     for entry in entries:
-        obj = host["state"]["objects"].get(entry["book_id"])
-        if not obj or obj["kind"] != "book" or obj["anchor_id"] != entry["anchor_id"]:
+        obj = original.get(entry["book_id"])
+        if obj is None and register_annex:
+            if entry["anchor_id"] not in host["state"]["anchors"]:
+                raise Conflict("Unknown shelf address")
+            if any(v["anchor_id"] == entry["anchor_id"] for v in original.values()):
+                raise Conflict("Shelf position is already physically occupied")
+            missing.append(entry)
+        elif not obj or obj["kind"] != "book" or obj["anchor_id"] != entry["anchor_id"]:
             raise Conflict("Physical shelf and bibliography disagree")
     lib = BookLibrary(habitat)
     # The catalog is append-only. No book is overwritten by this process.
@@ -142,10 +167,15 @@ def import_collection(habitat: SpatialHabitat, bibliography: dict,
         raw = fetcher(entry)
         if len(raw) != entry["source_bytes"] or git_blob_digest(raw) != entry["source_git_blob_sha1"]:
             raise Conflict("Source mismatch before import")
-        pages = digital_leaves(genuine_text(raw))
+        try:
+            pages = digital_leaves(genuine_text(raw))
+        except (LabError, UnicodeDecodeError) as exc:
+            raise LabError("Source " + entry["book_id"] + " (" +
+                           entry["source_file"] + "): " + str(exc)) from exc
         prepared.append((entry, pages, hashlib.sha256(raw).hexdigest()))
     if dry_run:
         return {"validated": len(prepared), "installed": 0,
+                "would_register_physical": len(missing),
                 "source_bytes": sum(entry["source_bytes"] for entry, _, _ in prepared),
                 "digital_segments": sum(len(p) for _, p, _ in prepared)}
     prior = lib.catalog()
@@ -164,6 +194,15 @@ def import_collection(habitat: SpatialHabitat, bibliography: dict,
                     old["edition"]["title"] != entry["title"][:250]):
                 raise Conflict("Existing personal book differs from pinned corpus: "
                                + entry["book_id"])
+    # Register persistent actual book objects only after every source and
+    # preexisting edition is validated. Never silently revise core genesis.
+    if missing:
+        annex = ShelfAnnex(habitat)
+        annex.initialize()
+        for entry in missing:
+            annex.register(entry["book_id"], entry["anchor_id"], entry["title"],
+                           event_id="period-physical-" + entry["book_id"].replace(":", "-"))
+        annex.verify()
     results = []
     for entry, pages, source_sha256 in prepared:
         book_id = entry["book_id"]
@@ -208,12 +247,15 @@ def main(argv=None) -> int:
     parser.add_argument("--catalog", default="corpus/victorian_bookshelf_v1.json")
     parser.add_argument("--year", type=int, default=1890)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--register-annex", action="store_true",
+                        help="Add missing physical book objects in available anchors")
     args = parser.parse_args(argv)
     try:
         bibliography = json.loads(Path(args.catalog).read_text(encoding="utf-8"))
         outcome = import_collection(
             SpatialHabitat(args.db), bibliography,
             setting_year=args.year, dry_run=args.dry_run,
+            register_annex=args.register_annex,
         )
         print(json.dumps(outcome, indent=2, sort_keys=True))
         return 0

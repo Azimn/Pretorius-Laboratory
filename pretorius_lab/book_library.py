@@ -250,8 +250,9 @@ class BookLibrary:
                 prev, revision = event_hash, n
             if (revision, prev, books) != (m["revision"], m["head_hash"], m["books"]):
                 raise Conflict("Book ledger materialized state diverged")
-            if any(book_id not in self.habitat.status()["state"]["objects"]
-                   or self.habitat.status()["state"]["objects"][book_id]["kind"] != "book"
+            from .shelf_annex import physical_book_objects
+            physical = physical_book_objects(self.habitat)
+            if any(book_id not in physical or physical[book_id]["kind"] != "book"
                    for book_id in books):
                 raise Conflict("Edition detached from its physical book identity")
             return {"verified": True, "revision": revision, "event_cursor": prev,
@@ -293,6 +294,11 @@ class BookLibrary:
                 return {**previous, "event_hash": existing[1]}
             physical_id = action["book_id"]
             obj = host["state"]["objects"].get(physical_id)
+            if obj is None:
+                from .shelf_annex import ShelfAnnex
+                if ShelfAnnex.exists(db):
+                    row = db.execute("SELECT value FROM annex_meta WHERE key='items'").fetchone()
+                    obj = json.loads(row[0]).get(physical_id) if row else None
             if not obj or obj["kind"] != "book":
                 raise LabError("A source-backed book must exist as a physical world object")
             updated = _apply(m["books"], action, sandbox=m["mode"] == "sandbox")

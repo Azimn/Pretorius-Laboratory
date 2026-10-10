@@ -97,6 +97,14 @@ The install verifies each complete source's original byte size and immutable Git
 
 See [The Victorian Library and Future Shop Threshold](docs/VICTORIAN_LIBRARY_AND_SHOP_THRESHOLD.md) for source/edition caveats, proposed character chronology and deferred traversal safeguards. A curated bibliography or successful network import does not mean Pretorius has acquired or read the books in an actual cognitive episode. All full-text tests are currently run on an independent synthetic v2 world.
 
+## Esoteric Annex: ten more complete pre-1891 books
+
+The first shelf now has an opt-in, permanent, **physical ten-book annex**, alongside the original seven titles on shelf three. The new ten are source-pinned complete public-domain works by Blavatsky (both volumes of *Isis Unveiled* and *The Key to Theosophy*), Walter Scott, Catherine Crowe (two books), Edward Bulwer-Lytton (three), and Cotton Mather. Themes include theosophy, witchcraft, mysticism, spiritualism, mesmeric fiction and skeptical historical inquiry. The works are primary texts, not assertions that their supernatural descriptions are physically true.
+
+The annex uses an append-only physical-object ledger to add the new identities and exact shelf positions without rewriting the original spatial v2 event history or existing possessions. The combined fixture can hold **17 books with actual text** and retained reading bookmarks. See [Esoteric full-text annex](docs/ESOTERIC_ANNEX_FULLTEXT_2026-10-10.md) and [the source catalog](corpus/esoteric_annex_1890.json).
+
+To build a *fresh* 17-volume lab, initialize a spatial v2 file, run the original Victorian bookshelf import, then run the additional esoteric import with the explicit flag \`--register-annex\`. The [esoteric bookshelf verification workflow](.github/workflows/esoteric-annex.yml) produces a full SQLite backup artifact; this is a synthetic research fixture rather than Pretorius's actual inhabited home.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash

@@ -1,0 +1,202 @@
+{
+  "schema": "victorian-bookshelf-corpus/1",
+  "setting_note": "Supplemental occult shelf for a synthetic 1890 fixture. Exact Village calendar year remains undecided. No claim of existing Pretorius ownership, memories, or published Village lore.",
+  "location_note": "An additive, versioned spatial-annex ledger registers ten distinct new physical book objects into previously vacant shelf 1 slots 1-10. Existing v2 physical genesis and earlier seven books remain untouched.",
+  "source_policy": "US-public-domain historic works in complete source-pinned GITenberg plain-text transcriptions, original print-paging and illustrations not represented.",
+  "entries": [
+    {
+      "book_id": "book:008",
+      "anchor_id": "shelf:1/slot:1",
+      "title": "Isis Unveiled, Volume I: Science",
+      "author": "H. P. Blavatsky",
+      "first_publication_year": 1877,
+      "subject": [
+        "theosophy",
+        "occult sciences"
+      ],
+      "source_repository": "GITenberg/Isis-unveiled-Volume-1-of-2-Science-A-master-key-to-mysteries-of-ancient-and-modern-science-a__68705",
+      "source_commit": "16d558e4f2410944801d92e601245e286c724f40",
+      "source_file": "68705-0.txt",
+      "source_bytes": 1968154,
+      "source_git_blob_sha1": "4b45579d9700ec562af9c1c09a8ba64cf8d46f73",
+      "edition_note": "1877 original work; source transcription based on late-1870s print. Claims about supernatural phenomena are historical claims, not world truth.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/68705",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:009",
+      "anchor_id": "shelf:1/slot:2",
+      "title": "Isis Unveiled, Volume II: Theology",
+      "author": "H. P. Blavatsky",
+      "first_publication_year": 1877,
+      "subject": [
+        "theosophy",
+        "religion"
+      ],
+      "source_repository": "GITenberg/Isis-unveiled-Volume-2-of-2-Theology-b-A-master-key-to-the-mysteries-of-ancient-and-modern-sc__75871",
+      "source_commit": "2173ab347753e22890056a57fc3b1170e029d910",
+      "source_file": "75871-0.txt",
+      "source_bytes": 2335391,
+      "source_git_blob_sha1": "bda367b14e9c78d45fa831d3f80d097ff1492116",
+      "edition_note": "Published work 1877; verify the particular physical imprint against later scan metadata.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/75871",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:010",
+      "anchor_id": "shelf:1/slot:3",
+      "title": "The Key to Theosophy",
+      "author": "H. P. Blavatsky",
+      "first_publication_year": 1889,
+      "subject": [
+        "theosophy",
+        "philosophy"
+      ],
+      "source_repository": "GITenberg/The-Key-to-Theosophy-Being-A-Clear-Exposition-In-The-Form-Of-Question-And-Answer-Of-The-Ethic__55618",
+      "source_commit": "08a8073eaca90755b75324119befc8bcf122df4f",
+      "source_file": "55618-0.txt",
+      "source_bytes": 601086,
+      "source_git_blob_sha1": "da5e279ba7a1167c87bfa1b9bc04f7731e29e61b",
+      "edition_note": "Original work from 1889; later transcription may use an updated printing.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/55618",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:011",
+      "anchor_id": "shelf:1/slot:4",
+      "title": "Letters on Demonology and Witchcraft",
+      "author": "Walter Scott",
+      "first_publication_year": 1830,
+      "subject": [
+        "witchcraft",
+        "folklore",
+        "skepticism"
+      ],
+      "source_repository": "GITenberg/Letters-on-Demonology-and-Witchcraft_14461",
+      "source_commit": "db1f9c0229fb4641dd404bcaf5b1346af869ee5f",
+      "source_file": "14461.txt",
+      "source_bytes": 671173,
+      "source_git_blob_sha1": "175962a30dc3395e5e1d9c055e7697fd669628fb",
+      "edition_note": "Original 1830 skeptical survey; inspect printed source edition before labeling individual engravings.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/14461",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:012",
+      "anchor_id": "shelf:1/slot:5",
+      "title": "The Night Side of Nature; Or, Ghosts and Ghost Seers",
+      "author": "Catherine Crowe",
+      "first_publication_year": 1848,
+      "subject": [
+        "spiritualism",
+        "apparitions",
+        "folklore"
+      ],
+      "source_repository": "GITenberg/The-Night-Side-of-Nature-Or-Ghosts-and-Ghost-Seers_54532",
+      "source_commit": "0d96010262b5e4701aa2f2c4a32cbea99efb26db",
+      "source_file": "54532-0.txt",
+      "source_bytes": 1010634,
+      "source_git_blob_sha1": "577dc3c4a4ccc94a84f1b49fa0061261952fdb94",
+      "edition_note": "First published 1848; electronic transcription may reflect a later historical edition.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/54532",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:013",
+      "anchor_id": "shelf:1/slot:6",
+      "title": "Zanoni",
+      "author": "Edward Bulwer-Lytton",
+      "first_publication_year": 1842,
+      "subject": [
+        "rosicrucian fiction",
+        "mysticism"
+      ],
+      "source_repository": "GITenberg/Zanoni_2664",
+      "source_commit": "7024a9825efd97c9220c1127194c0d0247e077fe",
+      "source_file": "2664-0.txt",
+      "source_bytes": 932382,
+      "source_git_blob_sha1": "4df1444d58a62f97874cf807c9c9f837adf90532",
+      "edition_note": "Occult Rosicrucian literary fiction, 1842; not a treatise or verified ritual method.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/2664",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:014",
+      "anchor_id": "shelf:1/slot:7",
+      "title": "A Strange Story",
+      "author": "Edward Bulwer-Lytton",
+      "first_publication_year": 1862,
+      "subject": [
+        "mesmerism",
+        "occult fiction"
+      ],
+      "source_repository": "GITenberg/A-Strange-Story---Complete_7701",
+      "source_commit": "9ff26c001494c6a0ad552038ffdec9f5195bd155",
+      "source_file": "7701-0.txt",
+      "source_bytes": 1092617,
+      "source_git_blob_sha1": "4615353295d95b9569f582aa3b7f92db422d3715",
+      "edition_note": "Serialized 1861–62 and published in book form 1862; fiction involving mesmerism and occult themes.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/7701",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:015",
+      "anchor_id": "shelf:1/slot:8",
+      "title": "The Wonders of the Invisible World",
+      "author": "Cotton Mather",
+      "first_publication_year": 1693,
+      "subject": [
+        "witchcraft",
+        "witch trials",
+        "theology"
+      ],
+      "source_repository": "GITenberg/The-Wonders-of-the-Invisible-World--13-Being-an-Account-of-the-Tryals-of-Several-Witches-Late__28513",
+      "source_commit": "e788ca1fde92814fbf6878319a68131fc008acc9",
+      "source_file": "28513.txt",
+      "source_bytes": 512533,
+      "source_git_blob_sha1": "6b89be0cad13acf3dd8c3c45928b3b42bb556959",
+      "edition_note": "1693 source includes historical witch-trial claims and coercive accusations; handle as archival testimony, not supernatural or legal fact.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/28513",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:016",
+      "anchor_id": "shelf:1/slot:9",
+      "title": "The Coming Race",
+      "author": "Edward Bulwer-Lytton",
+      "first_publication_year": 1871,
+      "subject": [
+        "esoteric fiction",
+        "speculative science"
+      ],
+      "source_repository": "GITenberg/The-Coming-Race_1951",
+      "source_commit": "88e63d3abac553a304ee1e817003ddd54852ccaa",
+      "source_file": "1951-0.txt",
+      "source_bytes": 325411,
+      "source_git_blob_sha1": "283232a1d96749541d6808d764d303f364164ff0",
+      "edition_note": "1871 fiction; vril idea influenced later esoteric writing but is fictional.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/1951",
+      "status": "pinned_full_text_candidate"
+    },
+    {
+      "book_id": "book:017",
+      "anchor_id": "shelf:1/slot:10",
+      "title": "Ghosts and Family Legends: A Volume for Christmas",
+      "author": "Catherine Crowe",
+      "first_publication_year": 1859,
+      "subject": [
+        "ghosts",
+        "folklore",
+        "narrative testimony"
+      ],
+      "source_repository": "GITenberg/Ghosts-and-Family-LegendsA-Volume-for-Christmas_39485",
+      "source_commit": "f05d326dba320e8d07ea9c62edfd122e9fccdd58",
+      "source_file": "39485.txt",
+      "source_bytes": 388519,
+      "source_git_blob_sha1": "ea8ef59d023075ce3d216bd30f04679590110331",
+      "edition_note": "Victorian supernatural accounts dated 1859; testimonies not assumed to be physically true.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/39485",
+      "status": "pinned_full_text_candidate"
+    }
+  ]
+}
