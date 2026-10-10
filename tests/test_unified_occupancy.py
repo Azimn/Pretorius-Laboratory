@@ -61,7 +61,7 @@ class UnifiedOccupancyTests(unittest.TestCase):
                   "anchor_id": "shelf:3/slot:7"}
         a = self.lab.commit(action, event_id="operator-place-fixed")
         b = self.lab.commit(action, event_id="operator-place-fixed")
-        self.assertEqual(a["event_hash"], b["event_hash"])
+        self.assertEqual(a, b)
         self.assertEqual(self.custody.verify()["revision"], 2)
         with self.assertRaises(Conflict):
             self.lab.commit({"op": "place", "object_id": "beaker:001",
