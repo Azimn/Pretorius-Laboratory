@@ -71,3 +71,29 @@ jobs:
           python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/full-backup.sqlite3" verify
           python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/books-home.sqlite3" fork "$RUNNER_TEMP/fork-after-view.sqlite3"
           python -m pretorius_lab.observation_receipts --db "$RUNNER_TEMP/fork-after-view.sqlite3" verify
+
+      - name: Exercise embodied position-gated reading and persistent actor receipts
+        run: |
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/subject-home.sqlite3" init
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/subject-home.sqlite3" init
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/subject-home.sqlite3" install book:007 fixtures/DEMO_BOOK_007.json
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" init
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" look
+          if python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book open book:007; then
+            echo "ERROR: doorway reading unexpectedly succeeded"; exit 1
+          fi
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" go station:center
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" go station:shelf:3
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" look
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book open book:007
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book read book:007
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book turn book:007 --direction 1
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book mark book:007 --bookmark crimson-slip
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book close book:007
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book open_mark book:007 --bookmark crimson-slip
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" book read book:007
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-home.sqlite3" verify
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/subject-home.sqlite3" backup "$RUNNER_TEMP/subject-backup.sqlite3"
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-backup.sqlite3" verify
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/subject-home.sqlite3" fork "$RUNNER_TEMP/subject-fork.sqlite3"
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/subject-fork.sqlite3" verify
