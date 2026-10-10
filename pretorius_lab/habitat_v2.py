@@ -374,17 +374,33 @@ class SpatialHabitat:
 
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
-        head = self.verify()
-        m = self.status()
-        parent = {k: head[k] for k in (
-            "lab_id", "world_epoch", "revision", "head_hash", "state_digest")}
-        clone = SpatialHabitat.create(destination, initial_state=m["state"],
+        m = self._verified_status()
+        parent = {
+            "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
+            "revision": m["revision"], "head_hash": m["head_hash"],
+            "state_digest": digest(m["state"]),
+        }
+        cloned_state = copy.deepcopy(m["state"])
+        # Object revisions belong to the new branch/epoch, not the parent chain.
+        for obj in cloned_state["objects"].values():
+            obj["revision"] = 0
+        clone = SpatialHabitat.create(destination, initial_state=cloned_state,
                                       parent=parent, home_id=m["home_id"])
         return clone.verify()
 
-    def locate(self, object_id: str) -> dict:
-        self.verify()
+    def _verified_status(self) -> dict:
+        """Do not label a moving scene as verified against a different cursor."""
         m = self.status()
+        proof = self.verify()
+        if (m["lab_id"], m["world_epoch"], m["revision"],
+            m["head_hash"], digest(m["state"])) != (
+                proof["lab_id"], proof["world_epoch"], proof["revision"],
+                proof["head_hash"], proof["state_digest"]):
+            raise Conflict("World changed during verified observation; retry")
+        return m
+
+    def locate(self, object_id: str) -> dict:
+        m = self._verified_status()
         obj = m["state"]["objects"].get(object_id)
         if obj is None:
             raise LabError("Unknown object")
@@ -396,8 +412,7 @@ class SpatialHabitat:
                 "observation_class": "host_state_not_lived_memory"}
 
     def scan(self, parent: str) -> dict:
-        self.verify()
-        m = self.status()
+        m = self._verified_status()
         anchors = m["state"]["anchors"]
         selected = {key: value for key, value in anchors.items() if value["parent"] == parent}
         if not selected:
@@ -415,8 +430,7 @@ class SpatialHabitat:
                 "mode": m["mode"], "visibility": "research_private"}
 
     def observe(self, room: str = "room:sanctum") -> dict:
-        self.verify()
-        m = self.status()
+        m = self._verified_status()
         if room not in ROOMS:
             raise LabError("Unknown room")
         state = m["state"]
