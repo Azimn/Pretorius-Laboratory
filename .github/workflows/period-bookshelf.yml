@@ -1,0 +1,40 @@
+name: Victorian complete-text bookshelf acceptance
+on:
+  pull_request:
+    paths:
+      - "corpus/**"
+      - "pretorius_lab/period_bookshelf.py"
+      - "tests/test_period_bookshelf.py"
+      - ".github/workflows/period-bookshelf.yml"
+  workflow_dispatch:
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify catalog and import logic without network
+        run: python -m unittest discover -s tests -p 'test_period_bookshelf.py' -v
+      - name: Assemble actual full source-backed texts, independently pinned
+        run: |
+          mkdir -p "$RUNNER_TEMP/period-bookshelf"
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/period-bookshelf/sanctum.sqlite3" init
+          python -m pretorius_lab.period_bookshelf --db "$RUNNER_TEMP/period-bookshelf/sanctum.sqlite3" --catalog corpus/victorian_bookshelf_v1.json --year 1890 | tee "$RUNNER_TEMP/period-bookshelf/ingest-report.json"
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/period-bookshelf/sanctum.sqlite3" verify
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/period-bookshelf/sanctum.sqlite3" catalog > "$RUNNER_TEMP/period-bookshelf/book-catalog.json"
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/period-bookshelf/sanctum.sqlite3" backup "$RUNNER_TEMP/period-bookshelf/verified-book-backup.sqlite3"
+          python -m pretorius_lab.book_cli --db "$RUNNER_TEMP/period-bookshelf/verified-book-backup.sqlite3" verify
+      - name: Upload full book-content laboratory snapshot and source receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: victorian-bookshelf-source-backed-fixture
+          path: |
+            ${{ runner.temp }}/period-bookshelf/verified-book-backup.sqlite3
+            ${{ runner.temp }}/period-bookshelf/ingest-report.json
+            ${{ runner.temp }}/period-bookshelf/book-catalog.json
+          if-no-files-found: error
+          retention-days: 60
