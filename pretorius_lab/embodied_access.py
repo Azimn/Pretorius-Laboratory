@@ -226,6 +226,19 @@ class EmbodiedAccess:
                             raise Conflict("Embodied annex provenance mismatch")
                     elif e["annex_revision"] != 0 or e["annex_cursor"] != GENESIS_HASH:
                         raise Conflict("Embodied annex history missing")
+                if "custody_revision" in e:
+                    crev = e["custody_revision"]
+                    if type(crev) is not int or crev < 0:
+                        raise Conflict("Bad world-handling cursor revision")
+                    if crev == 0:
+                        recorded = GENESIS_HASH
+                    else:
+                        row = db.execute(
+                            "SELECT event_hash FROM custody_events WHERE revision=?",
+                            (crev,)).fetchone()
+                        recorded = row[0] if row else None
+                    if recorded != e["custody_cursor"]:
+                        raise Conflict("Observation cites missing book handling event")
                 if e["before_station"] != station:
                     raise Conflict("Actor event started in wrong position")
                 if e["kind"] == "move":
@@ -291,6 +304,15 @@ class EmbodiedAccess:
                     raise LabError("Looking does not move the actor")
                 new, payload = old, _scene(db, host, old)
             _, annex_rev, annex_cursor = _annex(db)
+            from .book_custody import exists as has_custody
+            custody_receipt = {}
+            if has_custody(db):
+                stored = {k: json.loads(v) for k, v in db.execute(
+                    "SELECT key,value FROM custody_meta")}
+                custody_receipt = {
+                    "custody_revision": stored["revision"],
+                    "custody_cursor": stored["head_hash"],
+                }
             e = {
                 "event_id": event_id, "kind": kind, "subject_id": SUBJECT_ID,
                 "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
@@ -300,6 +322,7 @@ class EmbodiedAccess:
                 "world_revision": host["revision"],
                 "world_cursor": host["head_hash"],
                 "annex_revision": annex_rev, "annex_cursor": annex_cursor,
+                **custody_receipt,
                 "previous_hash": m["head_hash"], "recorded_utc": _utc(),
                 "claim": "local_action_or_offer_not_confirmed_lived_memory",
             }
