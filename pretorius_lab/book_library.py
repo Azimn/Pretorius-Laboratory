@@ -228,6 +228,18 @@ class BookLibrary:
                 books = _apply(books, entry["action"], sandbox=m["mode"] == "sandbox")
                 if entry["after_digest"] != digest(books):
                     raise Conflict("Book state replay mismatch")
+                if entry["action"]["op"] == "read":
+                    record = books[entry["book_id"]]
+                    current = record["current_page"]
+                    expected = {
+                        "page_number": current,
+                        "page_digest": digest(record["edition"]["pages"][current - 1]),
+                        "edition_digest": record["edition"]["content_digest"],
+                    }
+                    if entry.get("page_receipt") != expected:
+                        raise Conflict("Read-page receipt does not match the edition")
+                elif entry.get("page_receipt") is not None:
+                    raise Conflict("Non-reading event claimed a page receipt")
                 prev, revision = event_hash, n
             if (revision, prev, books) != (m["revision"], m["head_hash"], m["books"]):
                 raise Conflict("Book ledger materialized state diverged")
@@ -277,6 +289,15 @@ class BookLibrary:
             if not obj or obj["kind"] != "book":
                 raise LabError("A source-backed book must exist as a physical world object")
             updated = _apply(m["books"], action, sandbox=m["mode"] == "sandbox")
+            page_receipt = None
+            if action["op"] == "read":
+                reading = m["books"][physical_id]
+                pnum = reading["current_page"]
+                page_receipt = {
+                    "page_number": pnum,
+                    "page_digest": digest(reading["edition"]["pages"][pnum - 1]),
+                    "edition_digest": reading["edition"]["content_digest"],
+                }
             entry = {
                 "event_id": event_id, "revision": m["revision"] + 1,
                 "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
@@ -286,6 +307,7 @@ class BookLibrary:
                 "after_digest": digest(updated),
                 "physical_world_revision": host["revision"],
                 "physical_event_cursor": host["head_hash"],
+                "page_receipt": page_receipt,
                 "previous_hash": m["head_hash"], "recorded_utc": _utc(),
             }
             h = digest(entry)
@@ -332,8 +354,10 @@ class BookLibrary:
                     "library_revision": result["revision"], "event_id": result["event_id"]}
         with self.habitat._open() as db:
             current = _meta(db, "books_meta")["books"][book_id]
-        page = current["current_page"]
+        page = result["page_receipt"]["page_number"]
         edition = current["edition"]
+        if result["page_receipt"]["edition_digest"] != edition["content_digest"]:
+            raise Conflict("Read receipt no longer matches installed edition")
         return {"book_id": book_id, "title": edition["title"], "author": edition["author"],
                 "edition_id": edition["edition_id"], "page": page,
                 "page_count": len(edition["pages"]),
