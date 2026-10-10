@@ -399,7 +399,8 @@ class SpatialHabitat:
             raise Conflict("World changed during verified observation; retry")
         return m
 
-    def locate(self, object_id: str) -> dict:
+    def inspect_object(self, object_id: str) -> dict:
+        """Engineering-only exact geometry and object metadata. Never pass to subject."""
         m = self._verified_status()
         obj = m["state"]["objects"].get(object_id)
         if obj is None:
@@ -409,7 +410,20 @@ class SpatialHabitat:
                 "anchor_id": obj["anchor_id"], "anchor": anchor,
                 "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
                 "revision": m["revision"], "event_cursor": m["head_hash"],
-                "observation_class": "host_state_not_lived_memory"}
+                "observation_class": "engineer_only_not_subject_accessible"}
+
+    def locate(self, object_id: str) -> dict:
+        """Subject-facing qualitative location, never privileged spatial coordinates."""
+        m = self._verified_status()
+        obj = m["state"]["objects"].get(object_id)
+        if obj is None:
+            raise LabError("Unknown object")
+        anchor = m["state"]["anchors"][obj["anchor_id"]]
+        return {"object_id": object_id,
+                "name": obj["name"], "condition": obj["condition"],
+                "location": {"room": anchor["room"], "fixture": anchor["parent"],
+                             "position": anchor["ordinal"], "anchor_id": obj["anchor_id"]},
+                "observation_class": "offered_host_fact_not_proof_of_witnessing"}
 
     def scan(self, parent: str) -> dict:
         m = self._verified_status()
@@ -422,7 +436,6 @@ class SpatialHabitat:
                      for oid, obj in m["state"]["objects"].items()}
         return {"fixture_id": parent,
                 "positions": [{"anchor_id": key, "ordinal": value["ordinal"],
-                               "xyz_mm": value["xyz_mm"],
                                "occupant": occupancy.get(key)}
                               for key, value in sorted(
                                   selected.items(), key=lambda item: item[1]["ordinal"])],
@@ -443,7 +456,6 @@ class SpatialHabitat:
                     "name": obj["name"], "kind": obj["kind"],
                     "condition": obj["condition"], "collected": obj["collected"],
                     "anchor_id": obj["anchor_id"],
-                    "xyz_mm": state["anchors"][obj["anchor_id"]]["xyz_mm"],
                 } for oid, obj in sorted(state["objects"].items())
                     if state["anchors"][obj["anchor_id"]]["room"] == room}}
 
@@ -458,6 +470,7 @@ def main(argv=None) -> int:
     sub.add_parser("status")
     look = sub.add_parser("observe"); look.add_argument("room", nargs="?", default="room:sanctum")
     loc = sub.add_parser("locate"); loc.add_argument("object_id")
+    inspect = sub.add_parser("inspect-geometry"); inspect.add_argument("object_id")
     scan = sub.add_parser("scan"); scan.add_argument("fixture_id")
     action = sub.add_parser("act")
     action.add_argument("operation", choices=("place", "break", "collect", "advance_ticks"))
@@ -480,6 +493,8 @@ def main(argv=None) -> int:
             result = lab.observe(args.room)
         elif args.cmd == "locate":
             result = lab.locate(args.object_id)
+        elif args.cmd == "inspect-geometry":
+            result = lab.inspect_object(args.object_id)
         elif args.cmd == "scan":
             result = lab.scan(args.fixture_id)
         elif args.cmd == "backup":
