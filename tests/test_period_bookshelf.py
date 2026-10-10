@@ -66,7 +66,25 @@ class VictorianShelfTests(unittest.TestCase):
         reopened.operate("book:001", "open_mark", bookmark_id="slip")
         self.assertEqual(reopened.operate("book:001", "read")["page"], 2)
         self.assertEqual(self.home.locate("book:001")["location"]["position"], 1)
+        self.assertEqual(self.home.locate("book:001")["name"], "Example historical text")
+        self.assertEqual(self.home.scan("shelf:3")["positions"][0]["occupant"]["name"],
+                         "Example historical text")
+        self.assertNotIn("Anatomical observations", json.dumps(self.home.scan("shelf:3")))
         self.assertEqual(self.home.verify()["revision"], 0)
+
+    def test_identical_source_can_resume_without_modifying_reading_history(self):
+        first = import_collection(self.home, self.bib, fetcher=lambda e: self.payload)
+        lib = BookLibrary(self.home)
+        lib.operate("book:001", "open")
+        lib.operate("book:001", "mark", bookmark_id="old-slip")
+        rev = lib.verify()["revision"]
+        again = import_collection(self.home, self.bib, fetcher=lambda e: self.payload)
+        self.assertEqual(first["installed"], 1)
+        self.assertEqual(again["installed"], 0)
+        self.assertEqual(again["already_present"], 1)
+        self.assertEqual(lib.verify()["revision"], rev)
+        self.assertEqual(lib.catalog("book:001")["book:001"]["bookmarks"],
+                         {"old-slip": 1})
 
     def test_download_hash_mismatch_fails_before_install(self):
         def wrong(entry):
