@@ -82,6 +82,7 @@ def _apply(books: dict, action: dict, *, sandbox: bool) -> dict:
         "install": {"op", "book_id", "edition"},
         "fork_seed": {"op", "book_id", "record"},
         "open": {"op", "book_id"},
+        "open_mark": {"op", "book_id", "bookmark_id"},
         "turn": {"op", "book_id", "direction"},
         "mark": {"op", "book_id", "bookmark_id"},
         "unmark": {"op", "book_id", "bookmark_id"},
@@ -117,6 +118,12 @@ def _apply(books: dict, action: dict, *, sandbox: bool) -> dict:
                 raise LabError("Book is already open")
             record["opened"] = True
             record["current_page"] = 1
+        elif op == "open_mark":
+            marker = action["bookmark_id"]
+            if record["opened"] or not isinstance(marker, str) or marker not in record["bookmarks"]:
+                raise LabError("Close the book and select an existing physical bookmark")
+            record["opened"] = True
+            record["current_page"] = record["bookmarks"][marker]
         elif op == "close":
             if not record["opened"]:
                 raise LabError("Book is already closed")
@@ -344,7 +351,7 @@ class BookLibrary:
         action = {"op": op, "book_id": book_id}
         if op == "turn":
             action["direction"] = direction
-        elif op in {"mark", "unmark"}:
+        elif op in {"mark", "unmark", "open_mark"}:
             action["bookmark_id"] = bookmark_id
         elif direction is not None or bookmark_id is not None:
             raise LabError("Extraneous book action parameter")
