@@ -174,11 +174,14 @@ class ShelfAnnex:
                     "world_epoch": meta["world_epoch"]}
 
     def items(self):
+        if expected_placement_revision is not None:
+            raise LabError("Placement revision guard requires an active custody world")
         self.verify()
         with self.habitat._open() as db:
             return copy.deepcopy(_meta(db)["items"])
 
-    def commit(self, action, *, actor="local_operator", event_id=None):
+    def commit(self, action, *, actor="local_operator", event_id=None,
+               expected_placement_revision=None):
         if actor not in TRUSTED_ACTORS:
             raise LabError("Untrusted annex actor")
         event_id = event_id or str(uuid.uuid4())
@@ -196,7 +199,8 @@ class ShelfAnnex:
                 raise LabError("Malformed annex relocation")
             receipt = BookCustody(self.habitat).act(
                 "operator_place", action["book_id"],
-                destination=action["anchor_id"], event_id=event_id)
+                destination=action["anchor_id"], event_id=event_id,
+                expected_placement_revision=expected_placement_revision)
             return {**receipt, "domain": "effective_physical_placement",
                     "legacy_annex_revision_unchanged": True}
         self.verify()
@@ -248,9 +252,11 @@ class ShelfAnnex:
         return self.commit({"op": "register", "book_id": oid,
                             "anchor_id": anchor_id, "name": name}, event_id=event_id)
 
-    def move(self, oid, anchor_id, *, event_id=None):
+    def move(self, oid, anchor_id, *, event_id=None,
+             expected_placement_revision=None):
         return self.commit({"op": "move", "book_id": oid,
-                            "anchor_id": anchor_id}, event_id=event_id)
+                            "anchor_id": anchor_id}, event_id=event_id,
+                           expected_placement_revision=expected_placement_revision)
 
     def _fork_into(self, clone):
         self.verify()
