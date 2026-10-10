@@ -7,6 +7,7 @@ import threading
 import unittest
 
 from pretorius_lab import Laboratory, LabError, Conflict
+from pretorius_lab.perception import observe
 
 
 class LaboratoryTests(unittest.TestCase):
@@ -154,6 +155,58 @@ class LaboratoryTests(unittest.TestCase):
         self.assertFalse(a.is_alive() or b.is_alive())
         self.assertCountEqual(outcomes, ["accepted", "conflicted"])
         self.assertEqual(self.lab.verify()["revision"], 1)
+
+class PerceptionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.lab = Laboratory.create(Path(self.temp.name) / "lab.sqlite3")
+
+    def test_closed_vessel_conceals_specimen_and_action(self):
+        scene = observe(self.lab)
+        self.assertIn("container:specimen", scene["visible_objects"])
+        self.assertNotIn("specimen:alpha", scene["visible_objects"])
+        self.assertNotIn({"op": "move", "object_id": "specimen:alpha",
+                          "to_id": "bench:main"}, scene["eligible_action_examples"])
+        self.assertIn({"op": "open", "object_id": "container:specimen"},
+                      scene["eligible_action_examples"])
+
+    def test_open_vessel_reveals_specimen_and_legal_move(self):
+        self.lab.commit({"op": "open", "object_id": "container:specimen"})
+        scene = observe(self.lab)
+        self.assertIn("specimen:alpha", scene["visible_objects"])
+        self.assertIn({"op": "move", "object_id": "specimen:alpha",
+                       "to_id": "bench:main"}, scene["eligible_action_examples"])
+        self.assertIn({"op": "close", "object_id": "container:specimen"},
+                      scene["eligible_action_examples"])
+
+    def test_notebook_contents_not_disclosed(self):
+        secret = "Private experiment research note not for Village."
+        self.lab.commit({"op": "note", "text": secret})
+        scene = observe(self.lab)
+        self.assertNotIn("entries", scene["visible_objects"]["notebook:primary"])
+        self.assertNotIn(secret, json.dumps(scene))
+        self.assertEqual(scene["visibility"], "research_private")
+        self.assertIn("not_lived_memory", scene["observation_class"])
+
+    def test_observation_is_restart_stable_and_read_only(self):
+        one = observe(self.lab)
+        again = observe(Laboratory(self.lab.path))
+        self.assertEqual(one, again)
+        self.assertEqual(self.lab.status()["revision"], 0)
+        self.assertEqual(one["event_cursor"], "0" * 64)
+        self.lab.commit({"op": "advance_clock", "ticks": 4})
+        next_scene = observe(self.lab)
+        self.assertNotEqual(one["observation_digest"], next_scene["observation_digest"])
+        self.assertEqual(next_scene["visible_objects"]["instrument:clock"]["ticks"], 4)
+
+    def test_observation_refuses_corrupt_state(self):
+        self.lab.commit({"op": "advance_clock", "ticks": 1})
+        with sqlite3.connect(self.lab.path) as db:
+            db.execute("UPDATE events SET event_hash=? WHERE revision=1", ("f" * 64,))
+        with self.assertRaises(Conflict):
+            observe(self.lab)
+
 
 if __name__ == "__main__":
     unittest.main()

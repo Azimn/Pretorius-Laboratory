@@ -6,6 +6,7 @@ import json
 
 from .store import Laboratory
 from .physics import LabError, Conflict
+from .perception import observe
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="pretorius-lab", description="Permanent Pretorius research laboratory")
@@ -13,6 +14,7 @@ def parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("init")
     sub.add_parser("status")
+    sub.add_parser("observe")
     sub.add_parser("verify")
     sub.add_parser("checkpoint")
     b = sub.add_parser("backup"); b.add_argument("destination")
@@ -52,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
             result = Laboratory.create(args.db).status()
         elif args.command == "status":
             result = lab.status()
+        elif args.command == "observe":
+            result = observe(lab)
         elif args.command == "verify":
             result = lab.verify()
         elif args.command == "checkpoint":
