@@ -252,4 +252,11 @@ def physical_book_objects(habitat):
     if set(objects) & set(additions):
         raise Conflict("Annex duplicates core object ID")
     objects.update(additions)
+    from .book_custody import BookCustody, exists, effective_objects
+    with habitat._open() as db:
+        has_custody = exists(db)
+    if has_custody:
+        BookCustody(habitat).verify()
+        with habitat._open() as db:
+            return effective_objects(db)
     return objects
