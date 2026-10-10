@@ -253,14 +253,6 @@ class EmbodiedAccess:
             db.execute("BEGIN IMMEDIATE")
             m, host = _meta(db), SpatialHabitat._metadata(db)
             old = m["station"]
-            if kind == "move":
-                if destination not in STATIONS[old][1]:
-                    raise LabError("Station is not adjacent; walk through the room")
-                new, payload = destination, None
-            else:
-                if destination is not None:
-                    raise LabError("Looking does not move the actor")
-                new, payload = old, _scene(db, host, old)
             existing = db.execute(
                 "SELECT envelope,event_hash FROM embodied_events WHERE event_id=?",
                 (event_id,)).fetchone()
@@ -272,6 +264,14 @@ class EmbodiedAccess:
                 return {"event_id": event_id, "event_hash": existing[1],
                         "station": prior["after_station"],
                         "offered_payload": prior["offered_payload"]}
+            if kind == "move":
+                if destination not in STATIONS[old][1]:
+                    raise LabError("Station is not adjacent; walk through the room")
+                new, payload = destination, None
+            else:
+                if destination is not None:
+                    raise LabError("Looking does not move the actor")
+                new, payload = old, _scene(db, host, old)
             _, annex_rev, annex_cursor = _annex(db)
             e = {
                 "event_id": event_id, "kind": kind, "subject_id": SUBJECT_ID,
