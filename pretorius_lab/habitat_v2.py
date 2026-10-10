@@ -362,6 +362,13 @@ class SpatialHabitat:
         if has_books:
             from .book_library import BookLibrary
             BookLibrary(self).verify()
+        with self._open() as db:
+            has_observations = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='observation_meta'"
+            ).fetchone() is not None
+        if has_observations:
+            from .observation_receipts import ObservationPort
+            ObservationPort(self).verify()
         dest = Path(destination)
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
@@ -380,6 +387,8 @@ class SpatialHabitat:
         proof = SpatialHabitat(dest).verify()
         if has_books:
             BookLibrary(SpatialHabitat(dest)).verify()
+        if has_observations:
+            ObservationPort(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
@@ -392,6 +401,13 @@ class SpatialHabitat:
         if has_books:
             from .book_library import BookLibrary
             BookLibrary(self).verify()
+        with self._open() as source:
+            has_observations = source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='observation_meta'"
+            ).fetchone() is not None
+        if has_observations:
+            from .observation_receipts import ObservationPort
+            ObservationPort(self).verify()
         parent = {
             "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
             "revision": m["revision"], "head_hash": m["head_hash"],
@@ -407,6 +423,10 @@ class SpatialHabitat:
         # It must follow the room into a fork rather than silently disappearing.
         if has_books:
             BookLibrary(self)._fork_into(clone)
+        if has_observations:
+            # Forks may inherit book contents but NEVER inherit purported
+            # first-person delivery receipts as events they witnessed.
+            ObservationPort(clone).initialize()
         return clone.verify()
 
     def _verified_status(self) -> dict:
