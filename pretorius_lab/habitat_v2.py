@@ -355,6 +355,13 @@ class SpatialHabitat:
 
     def backup_to(self, destination: str | Path) -> dict:
         self.verify()
+        with self._open() as db:
+            has_books = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
+            ).fetchone() is not None
+        if has_books:
+            from .book_library import BookLibrary
+            BookLibrary(self).verify()
         dest = Path(destination)
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
@@ -370,11 +377,21 @@ class SpatialHabitat:
         finally:
             src.close()
             dst.close()
-        return SpatialHabitat(dest).verify()
+        proof = SpatialHabitat(dest).verify()
+        if has_books:
+            BookLibrary(SpatialHabitat(dest)).verify()
+        return proof
 
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
         m = self._verified_status()
+        with self._open() as source:
+            has_books = source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
+            ).fetchone() is not None
+        if has_books:
+            from .book_library import BookLibrary
+            BookLibrary(self).verify()
         parent = {
             "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
             "revision": m["revision"], "head_hash": m["head_hash"],
@@ -388,12 +405,7 @@ class SpatialHabitat:
                                       parent=parent, home_id=m["home_id"])
         # Optional book domain has its own cursor and immutable source pages.
         # It must follow the room into a fork rather than silently disappearing.
-        with self._open() as source:
-            has_books = source.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
-            ).fetchone() is not None
         if has_books:
-            from .book_library import BookLibrary
             BookLibrary(self)._fork_into(clone)
         return clone.verify()
 
