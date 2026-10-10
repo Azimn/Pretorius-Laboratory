@@ -272,9 +272,26 @@ class BookLibrary:
                     if (bhead != access.get("body_cursor") or
                             bstation != access.get("body_station")):
                         raise Conflict("Book operation has no real historical actor pose")
-                    if (access.get("physical_anchor") not in
-                            SpatialHabitat._metadata(db)["state"]["anchors"]):
+                    from .book_custody import exists as custody_exists
+                    crev = access.get("custody_revision", 0)
+                    ccursor = access.get("custody_cursor", GENESIS_HASH)
+                    if crev == 0:
+                        recorded_custody = GENESIS_HASH
+                    elif custody_exists(db):
+                        cr = db.execute(
+                            "SELECT event_hash FROM custody_events WHERE revision=?",
+                            (crev,)).fetchone()
+                        recorded_custody = cr[0] if cr else None
+                    else:
+                        recorded_custody = None
+                    if recorded_custody != ccursor:
+                        raise Conflict("Subject page access has invalid physical custody")
+                    aid = access.get("physical_anchor")
+                    if aid is not None and aid not in SpatialHabitat._metadata(db)[
+                            "state"]["anchors"]:
                         raise Conflict("Subject book receipt references no physical anchor")
+                    if aid is None and crev == 0:
+                        raise Conflict("Carried book lacks an accepted custody event")
                 prev, revision = event_hash, n
             if (revision, prev, books) != (m["revision"], m["head_hash"], m["books"]):
                 raise Conflict("Book ledger materialized state diverged")
@@ -361,11 +378,24 @@ class BookLibrary:
                     if (not tip or tip[1] != body["head_hash"] or
                             json.loads(tip[0])["after_station"] != body["station"]):
                         raise Conflict("Body position lacks a valid event cursor")
-                anchor = host["state"]["anchors"][obj["anchor_id"]]
-                required = ("station:" + anchor["parent"]
-                            if anchor["parent"].startswith("shelf:") else None)
-                if not required or body["station"] != required:
-                    raise LabError("Approach the book's current shelf before interacting")
+                from .book_custody import exists as custody_exists, effective_objects, _station_for_anchor
+                location = obj["anchor_id"]
+                holder = None
+                custody_rev, custody_cursor = 0, GENESIS_HASH
+                if custody_exists(db):
+                    physical = effective_objects(db)[physical_id]
+                    location, holder = physical["anchor_id"], physical.get("held_by")
+                    ledger = {k: json.loads(v) for k, v in db.execute(
+                        "SELECT key,value FROM custody_meta")}
+                    custody_rev, custody_cursor = ledger["revision"], ledger["head_hash"]
+                if location is None:
+                    if holder != SUBJECT_ID:
+                        raise LabError("Book is held by another actor")
+                elif (_station_for_anchor(host["state"]["anchors"], location)
+                      != body["station"]):
+                    raise LabError("Approach the book's current physical location")
+                access_custody_revision = custody_rev
+                access_custody_cursor = custody_cursor
                 from .shelf_annex import ShelfAnnex
                 annex_revision, annex_cursor = 0, GENESIS_HASH
                 if ShelfAnnex.exists(db):
@@ -378,7 +408,9 @@ class BookLibrary:
                     "body_station": body["station"],
                     "body_revision": body["revision"],
                     "body_cursor": body["head_hash"],
-                    "physical_anchor": obj["anchor_id"],
+                    "physical_anchor": location,
+                    "custody_revision": access_custody_revision,
+                    "custody_cursor": access_custody_cursor,
                     "annex_revision": annex_revision,
                     "annex_cursor": annex_cursor,
                     "scope": "local_position_guard_not_attested_subject_experience",
