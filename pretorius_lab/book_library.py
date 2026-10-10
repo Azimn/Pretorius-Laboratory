@@ -348,6 +348,19 @@ class BookLibrary:
                 if (body["lab_id"], body["world_epoch"], body["subject_id"]) != (
                         host["lab_id"], host["world_epoch"], SUBJECT_ID):
                     raise Conflict("Body and book belong to different laboratories")
+                # Ensure the current pose is actually the end of a committed
+                # bodily event, not merely an edited materialized metadata row.
+                if body["revision"] == 0:
+                    if (body["station"] != body["initial_station"] or
+                            body["head_hash"] != GENESIS_HASH):
+                        raise Conflict("Unreplayed actor pose")
+                else:
+                    tip = db.execute(
+                        "SELECT envelope,event_hash FROM embodied_events WHERE revision=?",
+                        (body["revision"],)).fetchone()
+                    if (not tip or tip[1] != body["head_hash"] or
+                            json.loads(tip[0])["after_station"] != body["station"]):
+                        raise Conflict("Body position lacks a valid event cursor")
                 anchor = host["state"]["anchors"][obj["anchor_id"]]
                 required = ("station:" + anchor["parent"]
                             if anchor["parent"].startswith("shelf:") else None)
