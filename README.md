@@ -19,6 +19,7 @@ Python 3.10 or newer. All runtime dependencies are in the standard library. Comm
 \`\`\`bash
 python -m pretorius_lab --db data/laboratory.sqlite3 init
 python -m pretorius_lab --db data/laboratory.sqlite3 status
+python -m pretorius_lab --db data/laboratory.sqlite3 observe
 python -m pretorius_lab --db data/laboratory.sqlite3 act open container:specimen
 python -m pretorius_lab --db data/laboratory.sqlite3 act move specimen:alpha bench:main
 python -m pretorius_lab --db data/laboratory.sqlite3 act advance_clock 12
@@ -26,6 +27,8 @@ python -m pretorius_lab --db data/laboratory.sqlite3 act note "A vessel opened; 
 python -m pretorius_lab --db data/laboratory.sqlite3 checkpoint
 python -m pretorius_lab --db data/laboratory.sqlite3 verify
 \`\`\`
+
+The read-only `observe` command provides a host-verified, machine-readable scene for future cognition adapters. A sealed container hides its contents until opened; notebook entries are never included in this perception payload. The observation includes a lab identity, world epoch, event cursor and provenance class, plus legal action examples computed by the authoritative physics reducer. An observation is not automatically a lived memory or a claim that Pretorius is present.
 
 The same database can be reopened in the next session without reinitialization. The open/close, move, clock and notebook operations are constrained by fixed physical rules. There is no arbitrary state write verb.
 
