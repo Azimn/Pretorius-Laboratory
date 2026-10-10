@@ -153,7 +153,15 @@ python -m pretorius_lab.embodied_cli --db data/handling-test.sqlite3 verify-cust
 
 Book locations, custody receipts, true full-text editions, bookmarks and actor position persist across restart and verified backups; sandbox forks receive separate world identities with copied current positions rather than invented earlier experiences. Original spatial event hashes remain untouched. The larger 17-book workflow also tests actual full-text *Isis Unveiled* handling with a real source-edition marker.
 
-See [Persistent Book Custody](docs/BOOK_CUSTODY_AND_PERSISTENT_HANDLING_2026-10-10.md) for the typed transfer contract and limitations. This is discrete one-slot occupancy, not simulated hands, dimensions, collisions, damage or an actual autonomous cognitive subject. Historic lower-level spatial reducers still reserve the original fixture anchor for books transferred by the custody overlay, although its effective world views correctly show that shelf empty; normalizing every old reducer is a future gate.
+See [Persistent Book Custody](docs/BOOK_CUSTODY_AND_PERSISTENT_HANDLING_2026-10-10.md) for the typed transfer contract and limitations. This is discrete one-slot occupancy, not simulated hands, dimensions, collisions, damage or an actual autonomous cognitive subject. New operator and annex physical **movements** after custody activation now share effective occupancy instead of rejecting a slot that is merely reserved in the old unmodified v2 history. New object **registrations** still have older raw-slot constraints; that remains a future versioned migration gate.
+
+## Unified effective physical placement over historical records
+
+After custody activation, new operator moves through the normal spatial v2 place command and existing annex book moves use the **same actual placement authority**. Thus if the subject takes the seventh book off the third shelf, the operator can place the beaker in that genuinely vacant position. Putting the held book back into an occupied spot correctly fails; moving the beaker away frees it again. Book identities and the original history remain unchanged.
+
+Unlike legacy v2 placement, a new integrated operator move creates a separately hash-audited custody-domain event and does **not increment** the original v2 or annex event revision. This distinction is intentional: the old sources must still be reproducible without rewriting the past. Local subject movement remains reach-gated, and the admin place command remains privileged. Historic fixed raw anchors cannot yet be used to create entirely **new** object identities under all registries.
+
+See [Unified Effective Occupancy](docs/UNIFIED_EFFECTIVE_OCCUPANCY_2026-10-10.md) for event semantics, reproducible before/after cases, 17-volume source integration and remaining constraints.
 
 ## Offline episode and reconciliation
 
