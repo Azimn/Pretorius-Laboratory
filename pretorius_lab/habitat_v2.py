@@ -89,7 +89,7 @@ ALLOWED_ACTION_FIELDS = {
 
 def _valid_state(state: dict) -> None:
     """Validate spatial invariants after every action and on archived genesis."""
-    if state["anchors"] != FIXTURE["anchors"] or state["rooms"] != ROOMs_FIXTURE():
+    if state["anchors"] != FIXTURE["anchors"] or state["rooms"] != FIXTURE["rooms"]:
         raise Conflict("Unsupported or mutated spatial definitions")
     if type(state["ticks"]) is not int or state["ticks"] < 0:
         raise Conflict("Invalid experiment tick")
@@ -98,7 +98,7 @@ def _valid_state(state: dict) -> None:
         if oid not in FIXTURE["objects"] or obj["kind"] != FIXTURE["objects"][oid]["kind"]:
             raise Conflict("Object identity/type mismatch")
         aid = obj["anchor_id"]
-        if aid not in state["anchors"] or aid in occupied:
+        if not isinstance(aid, str) or aid not in state["anchors"] or aid in occupied:
             raise Conflict("Missing anchor or double-occupied location")
         occupied.add(aid)
         if obj["condition"] not in {"intact", "broken"}:
@@ -111,10 +111,6 @@ def _valid_state(state: dict) -> None:
             raise Conflict("Invalid fragment state")
     if set(state["objects"]) != set(FIXTURE["objects"]):
         raise Conflict("Object identity registry was changed outside a typed action")
-
-
-def ROOMs_FIXTURE() -> dict:
-    return FIXTURE["rooms"]
 
 
 def apply_spatial(state: dict, action: dict, next_revision: int) -> dict:
