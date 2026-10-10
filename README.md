@@ -77,6 +77,26 @@ These additions are available on existing spatial v2 databases without rewriting
 
 See [Knowledge boundary and persistent books](docs/KNOWLEDGE_BOUNDARY_AND_PERSISTENT_BOOKS_2026-10-10.md). The local actor labels are not network credentials, and the current simulation does not yet implement character reach, lighting, fine-grained object affordances, measured geometry or real cognitive habitation.
 
+## Historical full-text bookshelf, and future Village shop link
+
+The world is broadly situated in the **1890s**; an exact in-fiction calendar year is still pending Village keeper approval. Pretorius's future small, not-yet-open curiosity shop is the public face of a larger building whose interior contains his **permanent full research laboratory and sanctuary**. A future authenticated threshold may permit traversal from the lab simulation into Frankenstein Village and back. **That bridge is not yet implemented**, and neither the shop nor Pretorius has been activated in the game.
+
+An initial seven-volume shelf of complete original pre-1891 works is now available as a reproducible, source-pinned corpus. It includes Cutter on anatomy, two volumes of William James's *Principles of Psychology*, Culpeper on herbal medicine, Scot on witchcraft, Frazer's **original 1890** *Golden Bough* volume I, and Stevenson's *Jekyll and Hyde*. The source files are pinned to individual Git commits and content hashes and assembled into a durable SQLite fixture by the separate [bookshelf acceptance workflow](.github/workflows/period-bookshelf.yml). The generated full-text SQLite artifact is retained by GitHub Actions for a limited period; the repository keeps the manifest/importer so the complete library can be rebuilt.
+
+To install this corpus into a **new** opt-in v2 fixture:
+
+~~~bash
+python -m pretorius_lab.habitat_v2 --db data/period-shelf.sqlite3 init
+python -m pretorius_lab.period_bookshelf --db data/period-shelf.sqlite3 --catalog corpus/victorian_bookshelf_v1.json --year 1890
+python -m pretorius_lab.book_cli --db data/period-shelf.sqlite3 catalog
+python -m pretorius_lab.book_cli --db data/period-shelf.sqlite3 open book:002
+python -m pretorius_lab.book_cli --db data/period-shelf.sqlite3 read book:002
+~~~
+
+The install verifies each complete source's original byte size and immutable Git blob hash, removes modern Project Gutenberg wrapper text and stores the full content as sequential **digital reading leaves** (not original printed page numbers). A book may be reopened at a persistent physical bookmark. Retry of an *identical* source installation is idempotent and retains prior bookmarks; different previously owned editions are never overwritten.
+
+See [The Victorian Library and Future Shop Threshold](docs/VICTORIAN_LIBRARY_AND_SHOP_THRESHOLD.md) for source/edition caveats, proposed character chronology and deferred traversal safeguards. A curated bibliography or successful network import does not mean Pretorius has acquired or read the books in an actual cognitive episode. All full-text tests are currently run on an independent synthetic v2 world.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash

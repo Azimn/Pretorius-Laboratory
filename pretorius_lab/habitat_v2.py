@@ -453,6 +453,21 @@ class SpatialHabitat:
                 "revision": m["revision"], "event_cursor": m["head_hash"],
                 "observation_class": "engineer_only_not_subject_accessible"}
 
+    def _verified_spine_titles(self) -> dict:
+        """Source-backed visible book titles, without page text or engineer geometry."""
+        with self._open() as db:
+            has_books = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='books_meta'"
+            ).fetchone() is not None
+        if not has_books:
+            return {}
+        from .book_library import BookLibrary
+        BookLibrary(self).verify()
+        with self._open() as db:
+            row = db.execute("SELECT value FROM books_meta WHERE key='books'").fetchone()
+        return {oid: value["edition"]["title"]
+                for oid, value in json.loads(row[0]).items()} if row else {}
+
     def locate(self, object_id: str) -> dict:
         """Subject-facing qualitative location, never privileged spatial coordinates."""
         m = self._verified_status()
@@ -460,8 +475,9 @@ class SpatialHabitat:
         if obj is None:
             raise LabError("Unknown object")
         anchor = m["state"]["anchors"][obj["anchor_id"]]
+        names = self._verified_spine_titles() if obj["kind"] == "book" else {}
         return {"object_id": object_id,
-                "name": obj["name"], "condition": obj["condition"],
+                "name": names.get(object_id, obj["name"]), "condition": obj["condition"],
                 "location": {"room": anchor["room"], "fixture": anchor["parent"],
                              "position": anchor["ordinal"], "anchor_id": obj["anchor_id"]},
                 "observation_class": "offered_host_fact_not_proof_of_witnessing"}
@@ -472,7 +488,9 @@ class SpatialHabitat:
         selected = {key: value for key, value in anchors.items() if value["parent"] == parent}
         if not selected:
             raise LabError("Unknown shelf or spatial fixture")
-        occupancy = {obj["anchor_id"]: {"id": oid, "name": obj["name"],
+        names = self._verified_spine_titles()
+        occupancy = {obj["anchor_id"]: {"id": oid,
+                                       "name": names.get(oid, obj["name"]),
                                        "condition": obj["condition"]}
                      for oid, obj in m["state"]["objects"].items()}
         return {"fixture_id": parent,

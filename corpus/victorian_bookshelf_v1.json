@@ -1,0 +1,144 @@
+{
+  "schema": "victorian-bookshelf-corpus/1",
+  "setting_note": "Frankenstein Village world is broadly 1890s, specific year undecided. Pretorius travels to reconnect with Henry before the film's events. His leased curiosity shop is dark and marked OPENING SOON; the full private laboratory is the back/interior of that building. This is development intent only, not game canon integration.",
+  "epoch_requirement": "The operator must confirm the specific in-universe year precedes no included physical edition.",
+  "layout": "Seven physical book IDs in shelf 3 slots 1-7 of a standalone synthetic spatial-v2 fixture, not presumed possessions or experiences of an existing character.",
+  "source_policy": "Full 21st-century public-domain digital transcriptions are deterministic sources for available textual content. The physical volume's historic typography, page numbers, engravings and historical edition are not established by UTF-8 text extraction. Do not present digital segments as original printed pages.",
+  "entries": [
+    {
+      "book_id": "book:001",
+      "anchor_id": "shelf:3/slot:1",
+      "title": "A Treatise on Anatomy, Physiology, and Hygiene (Revised Edition)",
+      "author": "Calvin Cutter",
+      "first_publication_year": 1858,
+      "subject": [
+        "medicine",
+        "anatomy"
+      ],
+      "source_repository": "GITenberg/A-Treatise-on-Anatomy-Physiology-and-Hygiene--Revised-Edition-_30541",
+      "source_commit": "96fbe5ead05c28bdc9adea65b641ad5161555aa3",
+      "source_file": "30541.txt",
+      "source_bytes": 928300,
+      "source_git_blob_sha1": "97443153b17e5047ac388bcaa3e8a53e312b7435",
+      "edition_note": "1858 revised stereotype edition, with engraved figures not represented in plain text.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/30541",
+      "status": "proposed_for_synthetic_fixture_pending_ingest"
+    },
+    {
+      "book_id": "book:002",
+      "anchor_id": "shelf:3/slot:2",
+      "title": "The Principles of Psychology, Volume I",
+      "author": "William James",
+      "first_publication_year": 1890,
+      "subject": [
+        "psychology"
+      ],
+      "source_repository": "GITenberg/The-Principles-of-Psychology-Volume-1-of-2_57628",
+      "source_commit": "80554feb640fbed7deebeba2b9104b54f82352d1",
+      "source_file": "57628-0.txt",
+      "source_bytes": 1698509,
+      "source_git_blob_sha1": "5cf96781a92274ada1a299356ae0708b63c75efa",
+      "edition_note": "The first volume of the 1890 work, not a future edition.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/57628",
+      "status": "proposed_for_synthetic_fixture_pending_ingest"
+    },
+    {
+      "book_id": "book:003",
+      "anchor_id": "shelf:3/slot:3",
+      "title": "The Principles of Psychology, Volume II",
+      "author": "William James",
+      "first_publication_year": 1890,
+      "subject": [
+        "psychology"
+      ],
+      "source_repository": "GITenberg/The-Principles-of-Psychology-Volume-2-of-2_57634",
+      "source_commit": "42be3e1f6ff00c63b705c6240218344dc9d10407",
+      "source_file": "57634-0.txt",
+      "source_bytes": 1704413,
+      "source_git_blob_sha1": "d532444115859612ea0b51227eb33aeeec79ed2f",
+      "edition_note": "The second volume of the 1890 work.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/57634",
+      "status": "proposed_for_synthetic_fixture_pending_ingest"
+    },
+    {
+      "book_id": "book:004",
+      "anchor_id": "shelf:3/slot:4",
+      "title": "The Complete Herbal",
+      "author": "Nicholas Culpeper",
+      "first_publication_year": 1653,
+      "subject": [
+        "medicine",
+        "herbalism",
+        "occult natural philosophy"
+      ],
+      "source_repository": "GITenberg/The-Complete-Herbal-To-which-is-now-added-upwards-of-one-hundred-additional-herbs-with-a-disp__49513",
+      "source_commit": "4c2f9807ecf5398cc3d57e42847cb43a3fc611a9",
+      "source_file": "49513-0.txt",
+      "source_bytes": 1532157,
+      "source_git_blob_sha1": "45e4f02c5028d089cb615780b90b0aaaa4d53603",
+      "edition_note": "Historical work first published in the 1650s. The Gutenberg transcription incorporates later expanded material; physical-edition year requires verification before period-canon promotion.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/49513",
+      "status": "proposed_for_synthetic_fixture_pending_ingest"
+    },
+    {
+      "book_id": "book:005",
+      "anchor_id": "shelf:3/slot:5",
+      "title": "The Discoverie of Witchcraft",
+      "author": "Reginald Scot",
+      "first_publication_year": 1584,
+      "subject": [
+        "occult",
+        "witchcraft",
+        "skeptical inquiry"
+      ],
+      "source_repository": "GITenberg/The-Discoverie-of-Witchcraft_60766",
+      "source_commit": "ab1e417d49231c55be2a74f27874d7a713d956ea",
+      "source_file": "60766-0.txt",
+      "source_bytes": 1867820,
+      "source_git_blob_sha1": "21d63214e28ce818fc1f77acf545108449763675",
+      "edition_note": "The text has an editor, Brinsley Nicholson. The underlying work is from 1584, but the edition's imprint needs provenance review.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/60766",
+      "status": "proposed_for_synthetic_fixture_pending_ingest"
+    },
+    {
+      "book_id": "book:006",
+      "anchor_id": "shelf:3/slot:6",
+      "title": "The Golden Bough: A Study in Comparative Religion, Vol. I",
+      "author": "James George Frazer",
+      "first_publication_year": 1890,
+      "subject": [
+        "occult",
+        "religion",
+        "anthropology"
+      ],
+      "source_repository": "GITenberg/The-Golden-Bough--A-Study-in-Comparative-Religion--Vol.-1-of-2-_41082",
+      "source_commit": "7b23b8e1e03e36c97f3176ee968aaaf3177f2d24",
+      "source_file": "41082-0.txt",
+      "source_bytes": 833840,
+      "source_git_blob_sha1": "eb0f596323270a061c7e0a72a73950e43665abe8",
+      "edition_note": "Original 1890 two-volume edition, not the widely circulated anachronistic 1922 abridgment or later third edition.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/41082",
+      "status": "proposed_for_synthetic_fixture_pending_ingest"
+    },
+    {
+      "book_id": "book:007",
+      "anchor_id": "shelf:3/slot:7",
+      "title": "Strange Case of Dr Jekyll and Mr Hyde",
+      "author": "Robert Louis Stevenson",
+      "first_publication_year": 1886,
+      "subject": [
+        "gothic fiction",
+        "medicine",
+        "identity"
+      ],
+      "source_repository": "GITenberg/The-Strange-Case-of-Dr.-Jekyll-and-Mr.-Hyde_43",
+      "source_commit": "534f1e1d3193ffaf351570cf808e0ee6db70efe9",
+      "source_file": "43-0.txt",
+      "source_bytes": 163048,
+      "source_git_blob_sha1": "7a56894693f2120db2a3423e73456d9368936be8",
+      "edition_note": "Published 1886. A fictional work appropriate to period, not a medical monograph.",
+      "gutenberg_url": "https://www.gutenberg.org/ebooks/43",
+      "status": "proposed_for_synthetic_fixture_pending_ingest"
+    }
+  ]
+}
