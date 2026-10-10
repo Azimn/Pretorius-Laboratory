@@ -35,7 +35,26 @@ def git_blob_digest(payload: bytes) -> str:
 
 def genuine_text(blob: bytes) -> str:
     """Remove ebook distribution wrapping, never invent or summarize words."""
-    text = blob.decode("utf-8-sig")
+    # GITenberg preserves some older Gutenberg ISO-8859-1/Windows-1252
+    # source files. The ORIGINAL bytes remain SHA/Git-blob pinned.
+    try:
+        text = blob.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        metadata = blob[:8000].decode("ascii", errors="ignore").lower()
+        if "character set encoding: iso-8859-1" in metadata:
+            text = blob.decode("latin-1")
+        elif any(label in metadata for label in (
+                "character set encoding: windows-1252",
+                "character set encoding: cp1252",
+                "character set encoding: us-ascii",
+                "character set encoding: ascii")):
+            # Some old ASCII-labelled plain texts contain CP1252 punctuation.
+            # Refuse non-ASCII bytes when the declared encoding is strict ASCII.
+            if "ascii" in metadata and "1252" not in metadata:
+                raise LabError("Source declares ASCII but contains non-ASCII bytes")
+            text = blob.decode("cp1252")
+        else:
+            raise LabError("Unknown non-UTF-8 source encoding; inspect edition metadata")
     start, end = GUTENBERG_START.search(text), GUTENBERG_END.search(text)
     if not start or not end or start.end() >= end.start():
         raise LabError("Unknown Gutenberg wrapper; refuse to invent book boundaries")
