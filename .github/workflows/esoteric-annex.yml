@@ -79,6 +79,7 @@ jobs:
           db="$RUNNER_TEMP/esoteric-library/laboratory.sqlite3"
           python -m pretorius_lab.embodied_cli --db "$db" init-custody
           python -m pretorius_lab.affordance_cli --db "$db" init > "$RUNNER_TEMP/esoteric-library/mechanical-initial-proof.json"
+          python -m pretorius_lab.embodied_cli --db "$db" init-instruments
           python -m pretorius_lab.habitat_v2 --db "$db" act place beaker:001 floor:corner:se
           python -m pretorius_lab.embodied_cli --db "$db" take book:008
           python -m pretorius_lab.habitat_v2 --db "$db" scan shelf:1 > "$RUNNER_TEMP/esoteric-library/after-pickup-shelf1.json"
@@ -88,6 +89,9 @@ jobs:
           python -m pretorius_lab.habitat_v2 --db "$db" scan bench:main > "$RUNNER_TEMP/esoteric-library/after-drop-workbench.json"
           python -m pretorius_lab.embodied_cli --db "$db" book open_mark book:008 --bookmark research-slip
           python -m pretorius_lab.embodied_cli --db "$db" book read book:008 > "$RUNNER_TEMP/esoteric-library/workbench-source-read.json"
+          python -m pretorius_lab.embodied_cli --db "$db" measure ruler:bench book:008 width_mm > "$RUNNER_TEMP/esoteric-library/source-book-ruler-reading.json"
+          python -m pretorius_lab.embodied_cli --db "$db" measure balance:bench book:008 mass_g > "$RUNNER_TEMP/esoteric-library/source-book-balance-reading.json"
+          python -m pretorius_lab.embodied_cli --db "$db" verify-instruments > "$RUNNER_TEMP/esoteric-library/instrument-ledger-proof.json"
           # Place the original beaker into the source book's now genuinely free
           # shelf position despite the immutable v2/annex historic reservation.
           python -m pretorius_lab.habitat_v2 --db "$db" act place beaker:001 shelf:1/slot:1 > "$RUNNER_TEMP/esoteric-library/reused-slot-operator-receipt.json"
@@ -97,6 +101,7 @@ jobs:
           python -m pretorius_lab.habitat_v2 --db "$db" backup "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3"
           python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3" verify-custody
           python -m pretorius_lab.affordance_cli --db "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3" verify
+          python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3" verify-instruments
           python - <<'PY'
           import json, os
           from pathlib import Path
@@ -104,6 +109,14 @@ jobs:
           shelf = json.loads((root/"after-pickup-shelf1.json").read_text())
           bench = json.loads((root/"after-drop-workbench.json").read_text())
           read = json.loads((root/"workbench-source-read.json").read_text())
+          ruler = json.loads((root/"source-book-ruler-reading.json").read_text())
+          balance = json.loads((root/"source-book-balance-reading.json").read_text())
+          instrument_proof = json.loads((root/"instrument-ledger-proof.json").read_text())
+          assert ruler["observation"]["value"] == 55
+          assert ruler["observation"]["interval"] == [52, 58]
+          assert balance["observation"]["value"] == 1600
+          assert balance["observation"]["interval"] == [1587, 1613]
+          assert instrument_proof["revision"] == 2
           mechanics = json.loads((root/"mechanical-final-proof.json").read_text())
           assert mechanics["source_class"] == "synthetic_declared_not_measured"
           assert mechanics["object_count"] == 18

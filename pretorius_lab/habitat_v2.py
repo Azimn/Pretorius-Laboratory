@@ -403,6 +403,11 @@ class SpatialHabitat:
 
     def backup_to(self, destination: str | Path) -> dict:
         self.verify()
+        from .bench_instruments import BenchInstruments, exists as instruments_exist
+        with self._open() as db:
+            has_instruments = instruments_exist(db)
+        if has_instruments:
+            BenchInstruments(self).verify()
         from .physical_affordances import PhysicalAffordances, exists as affordances_exist
         with self._open() as db:
             has_affordances = affordances_exist(db)
@@ -467,11 +472,18 @@ class SpatialHabitat:
             BookCustody(SpatialHabitat(dest)).verify()
         if has_affordances:
             PhysicalAffordances(SpatialHabitat(dest)).verify()
+        if has_instruments:
+            BenchInstruments(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
         m = self._verified_status()
+        from .bench_instruments import BenchInstruments, exists as instruments_exist
+        with self._open() as db:
+            has_instruments = instruments_exist(db)
+        if has_instruments:
+            BenchInstruments(self).verify()
         from .physical_affordances import PhysicalAffordances, exists as affordances_exist
         with self._open() as db:
             has_affordances = affordances_exist(db)
@@ -533,6 +545,10 @@ class SpatialHabitat:
             PhysicalAffordances(self)._fork_into(clone)
         if has_books:
             BookLibrary(self)._fork_into(clone)
+        if has_instruments:
+            # The new world has its own instruments and zero new measurements.
+            # Copy only a parent event pointer; no "experienced" readings.
+            BenchInstruments(self)._fork_into(clone)
         if has_observations:
             ObservationPort(clone).initialize()
         return clone.verify()
