@@ -121,12 +121,17 @@ def _scene(db, host: dict, station: str) -> dict:
         "room:sanctum": ["bookshelves", "workbench", "chamber doorway"],
         "room:experiment": ["experimental table", "sanctum doorway"],
     }
+    from .bench_instruments import exists as bench_instruments_exist
+    tools_visible = (["ruler:bench", "balance:bench"]
+                     if station == "station:bench" and bench_instruments_exist(db)
+                     else [])
     return {
         "location": {"room": room, "station": station},
         "perceived_features": fixture_labels[room],
         "at_hand_fixture": known,
         "nearby_objects": locally_visible,
         "held_objects": carrying,
+        "available_instruments": tools_visible,
         "available_moves": sorted(neighbors),
         "access_level": "qualitative_local_not_global_survey",
         "observation_class": "offered_not_proof_of_subject_attention",
