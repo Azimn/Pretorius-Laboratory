@@ -366,6 +366,14 @@ class EmbodiedAccess:
         )
         return result
 
+    def measure(self, instrument: str, object_id: str, quantity: str, *,
+                event_id: str | None = None) -> dict:
+        """Bounded subject instrument offer: no raw engineer dimensions."""
+        self.verify()
+        from .bench_instruments import BenchInstruments
+        return BenchInstruments(self.habitat).measure(
+            instrument, object_id, quantity, event_id=event_id)
+
     def take(self, book_id: str, *, event_id: str | None = None) -> dict:
         self.verify()
         from .book_custody import BookCustody
