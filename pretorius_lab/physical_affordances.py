@@ -184,6 +184,9 @@ class PhysicalAffordances:
         with self.habitat._open() as db:
             db.execute("BEGIN IMMEDIATE")
             host = SpatialHabitat._metadata(db)
+            from .book_custody import exists as custody_exists
+            if not custody_exists(db):
+                raise LabError("Initialize world custody before activating mechanical affordances")
             db.execute("CREATE TABLE IF NOT EXISTS affordance_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)")
             prior = _meta(db)
             if not prior:
