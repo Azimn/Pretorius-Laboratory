@@ -18,6 +18,12 @@ def main(argv=None):
     sub.add_parser("look")
     sub.add_parser("init-custody")
     sub.add_parser("verify-custody")
+    sub.add_parser("init-instruments")
+    sub.add_parser("verify-instruments")
+    measurement = sub.add_parser("measure")
+    measurement.add_argument("instrument", choices=("ruler:bench", "balance:bench"))
+    measurement.add_argument("object_id")
+    measurement.add_argument("quantity", choices=("mass_g", "width_mm", "height_mm", "depth_mm"))
     take = sub.add_parser("take")
     take.add_argument("book_id")
     put = sub.add_parser("put")
@@ -46,6 +52,16 @@ def main(argv=None):
         elif args.command == "verify-custody":
             from .book_custody import BookCustody
             result = BookCustody(actor.habitat).verify()
+        elif args.command == "init-instruments":
+            from .bench_instruments import BenchInstruments
+            result = BenchInstruments(actor.habitat).initialize()
+        elif args.command == "verify-instruments":
+            from .bench_instruments import BenchInstruments
+            result = BenchInstruments(actor.habitat).verify()
+        elif args.command == "measure":
+            from .bench_instruments import BenchInstruments
+            result = BenchInstruments(actor.habitat).measure(
+                args.instrument, args.object_id, args.quantity)
         elif args.command == "take":
             result = actor.take(args.book_id)
         elif args.command == "put":
