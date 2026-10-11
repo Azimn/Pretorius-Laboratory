@@ -59,9 +59,7 @@ def main(argv=None):
             from .bench_instruments import BenchInstruments
             result = BenchInstruments(actor.habitat).verify()
         elif args.command == "measure":
-            from .bench_instruments import BenchInstruments
-            result = BenchInstruments(actor.habitat).measure(
-                args.instrument, args.object_id, args.quantity)
+            result = actor.measure(args.instrument, args.object_id, args.quantity)
         elif args.command == "take":
             result = actor.take(args.book_id)
         elif args.command == "put":
