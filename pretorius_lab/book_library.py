@@ -286,6 +286,12 @@ class BookLibrary:
                         recorded_custody = None
                     if recorded_custody != ccursor:
                         raise Conflict("Subject page access has invalid physical custody")
+                    if "mechanical_profile_digest" in access:
+                        from .physical_affordances import profile_at
+                        current_mechanics = profile_at(db, SpatialHabitat._metadata(db))
+                        if (current_mechanics is None or
+                                digest(current_mechanics) != access["mechanical_profile_digest"]):
+                            raise Conflict("Reading receipt cites foreign mechanical profile")
                     aid = access.get("physical_anchor")
                     if aid is not None and aid not in SpatialHabitat._metadata(db)[
                             "state"]["anchors"]:
@@ -394,6 +400,13 @@ class BookLibrary:
                 elif (_station_for_anchor(host["state"]["anchors"], location)
                       != body["station"]):
                     raise LabError("Approach the book's current physical location")
+                from .physical_affordances import profile_at, check_actor_reach
+                mechanical_profile = profile_at(db, host)
+                if location is not None:
+                    # Near a shelf is not the same as being physically capable
+                    # of manipulating a high volume to open or read its pages.
+                    check_actor_reach(mechanical_profile, physical_id,
+                                      location, host, lifting=False)
                 access_custody_revision = custody_rev
                 access_custody_cursor = custody_cursor
                 from .shelf_annex import ShelfAnnex
@@ -411,6 +424,8 @@ class BookLibrary:
                     "physical_anchor": location,
                     "custody_revision": access_custody_revision,
                     "custody_cursor": access_custody_cursor,
+                    **({"mechanical_profile_digest": digest(mechanical_profile)}
+                       if mechanical_profile is not None else {}),
                     "annex_revision": annex_revision,
                     "annex_cursor": annex_cursor,
                     "scope": "local_position_guard_not_attested_subject_experience",
