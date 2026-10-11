@@ -525,10 +525,12 @@ class SpatialHabitat:
             ShelfAnnex(self)._fork_into(clone)
         if has_body:
             EmbodiedAccess(self)._fork_into(clone)
-        if has_affordances:
-            PhysicalAffordances(self)._fork_into(clone)
         if has_custody:
             BookCustody(self)._fork_into(clone)
+        if has_affordances:
+            # The copied effective positions must exist before validating
+            # nondefault size profiles against the new branch's world.
+            PhysicalAffordances(self)._fork_into(clone)
         if has_books:
             BookLibrary(self)._fork_into(clone)
         if has_observations:
