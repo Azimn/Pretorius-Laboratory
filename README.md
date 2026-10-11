@@ -179,6 +179,25 @@ python -m pretorius_lab.affordance_cli --db data/mechanical-lab.sqlite3 verify
 
 See [Synthetic Mechanical Affordances](docs/SYNTHETIC_MECHANICAL_AFFORDANCES_2026-10-10.md) for full numeric assumptions, scope, engineer-only diagnostics, falsifying tests and limitations. No dynamic grasping, exact collisions, authenticated instruments, human embodiment, or autonomous cognition is claimed.
 
+## Fixed ruler and balance: persistent, uncertain measurements
+
+The opt-in **bench instrument ledger** adds a ruler and balance as fixed components of the existing laboratory workbench, without introducing new movable objects or altering world history. Instruments appear in the subject-facing local look only at the bench. An actor must be at \`station:bench\`, with an object physically placed on \`bench:main/position:left\`, to perform a measurement; a distant book or a held book cannot be measured by simply naming its ID.
+
+Readouts are **synthetic calibrated fixture observations, not verified measurements of nineteenth-century books**. The ruler quantizes size to 5 mm with ±3 mm bounded uncertainty; the balance quantizes weight to 25 g with ±13 g bounded uncertainty. The actual declared host values, profile hashes and privileged geometry remain hidden from the actor. Each offered reading has an append-only, epoch-bound event with body pose, current/historic object placement, exact physical/custody cursors, instrument calibration digest, source profile digest and uncertainty interval. Historical readings remain verifiable after an object is moved. Backups preserve receipts; forks inherit instrument fixtures and parent provenance, but **not parent sensory events as fresh experiences**.
+
+~~~bash
+# After initialization of spatial-v2 habitat, actor, custody and mechanical limits:
+python -m pretorius_lab.embodied_cli --db data/laboratory.sqlite3 init-instruments
+python -m pretorius_lab.embodied_cli --db data/laboratory.sqlite3 go station:center
+python -m pretorius_lab.embodied_cli --db data/laboratory.sqlite3 go station:bench
+python -m pretorius_lab.embodied_cli --db data/laboratory.sqlite3 look
+python -m pretorius_lab.embodied_cli --db data/laboratory.sqlite3 measure balance:bench beaker:001 mass_g
+python -m pretorius_lab.embodied_cli --db data/laboratory.sqlite3 measure ruler:bench beaker:001 height_mm
+python -m pretorius_lab.embodied_cli --db data/laboratory.sqlite3 verify-instruments
+~~~
+
+See [Bench Instruments and Measurements](docs/BENCH_INSTRUMENTS_AND_MEASUREMENTS_2026-10-10.md) for the complete instrument calibration, limits, tamper tests and research-control protocol. This establishes an auditable offered measurement, not model attention, memory assimilation or autonomous Pretorius behavior.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash
