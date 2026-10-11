@@ -10,6 +10,7 @@ from pretorius_lab import Conflict, LabError
 from pretorius_lab.habitat_v2 import SpatialHabitat
 from pretorius_lab.embodied_access import EmbodiedAccess
 from pretorius_lab.book_custody import BookCustody
+from pretorius_lab.book_library import BookLibrary
 from pretorius_lab.physical_affordances import PhysicalAffordances, BASE_PROFILE
 from pretorius_lab.shelf_annex import ShelfAnnex
 
@@ -91,14 +92,24 @@ class MechanicalAffordanceTests(unittest.TestCase):
         profile = self.variant()
         profile["actor_limits"]["max_reach_height_mm"] = 1300
         self.mechanics.initialize(profile=profile)
+        library = BookLibrary(self.habitat)
+        library.initialize()
+        library.install("book:007", edition_id="fixture-v1", title="Reach Test",
+                        author="Test", pages=["Grounded first leaf."],
+                        source_class="original_fixture", source_reference="Synthetic test")
         self.walk("station:shelf:3")
         before = self.custody.verify()["revision"]
         with self.assertRaisesRegex(LabError, "declared reach"):
             self.actor.take("book:007")
+        with self.assertRaisesRegex(LabError, "declared reach"):
+            self.actor.book("book:007", "open")
         self.assertEqual(self.custody.verify()["revision"], before)
         self.habitat.commit({"op": "place", "object_id": "book:007",
                              "anchor_id": "shelf:1/slot:1"})
         self.walk("station:shelf:1")
+        self.actor.book("book:007", "open")
+        self.assertEqual(self.actor.book("book:007", "read")["page_text"],
+                         "Grounded first leaf.")
         self.actor.take("book:007")
         self.assertEqual(self.habitat.locate("book:007")["location"]["placement"],
                          "carried")
