@@ -34,6 +34,7 @@ Once activated, the profile is immutable within that world epoch. Every profile 
 \`BookCustody.act\` enforces the following checks in the SAME SQLite \`BEGIN IMMEDIATE\` transaction as a movement:
 - **Take:** the actor must be at the object, its host-defined anchor height must not exceed declared reach, and its mass must not exceed declared carrying capacity.
 - **Put:** the actor must be at a free destination, the anchor height must be reachable, the object's dimensions and mass must fit its clearance and support limit, and the actor must genuinely be holding that exact book.
+- **Subject reading:** even when standing at the correct shelf station, the actor may not open, turn, read or mark a book above the declared manipulation height; if the same book is moved to a reachable shelf (or is already legitimately held), its unchanged source text becomes accessible.
 - **Operator placement:** the object must not be held and the target must be unoccupied; target surface clearance and mass limits apply even for privileged engineering movements. Collected/broken glass rules remain separately enforced.
 - **New annex registration:** if a mechanical profile is active, a new physical book must already have a valid, explicitly source-labelled profile, and it must fit its designated shelf or supported surface.
 
