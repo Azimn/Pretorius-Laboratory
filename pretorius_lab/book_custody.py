@@ -186,6 +186,11 @@ class BookCustody:
             has_annex = ShelfAnnex.exists(check)
         if has_annex:
             ShelfAnnex(self.habitat).verify()
+        from .physical_affordances import PhysicalAffordances, exists as affordances_exist
+        with self.habitat._open() as check:
+            has_affordances = affordances_exist(check)
+        if has_affordances:
+            PhysicalAffordances(self.habitat).verify()
         with self.habitat._open() as db:
             if not exists(db):
                 raise LabError("Book custody is not initialized")
@@ -197,6 +202,8 @@ class BookCustody:
                 raise Conflict("Custody world provenance mismatch")
             prev, revision, items = GENESIS_HASH, 0, {}
             host, raw, _, _ = _raw(db)
+            from .physical_affordances import profile_at
+            active_profile = profile_at(db, host)
             for n, eid, encoded, prior, h in db.execute(
                 "SELECT revision,event_id,envelope,prev_hash,event_hash FROM custody_events ORDER BY revision"
             ):
@@ -210,6 +217,10 @@ class BookCustody:
                     raise Conflict("Custody event foreign epoch")
                 if event["before_digest"] != digest(items):
                     raise Conflict("Custody prior state mismatch")
+                if event.get("mechanical_profile_digest") is not None:
+                    if (active_profile is None or
+                            event["mechanical_profile_digest"] != digest(active_profile)):
+                        raise Conflict("Handling event references invalid mechanical assumptions")
                 body_rev = event["body_revision"]
                 if body_rev == 0:
                     body_cursor = GENESIS_HASH
@@ -279,6 +290,9 @@ class BookCustody:
             body = {k: json.loads(v) for k, v in db.execute(
                 "SELECT key,value FROM embodied_meta")}
             host, raw, ar, ah = _raw(db)
+            from .physical_affordances import (
+                profile_at, check_surface, check_actor_reach)
+            active_profile = profile_at(db, host)
             prior = db.execute(
                 "SELECT envelope,event_hash FROM custody_events WHERE event_id=?",
                 (event_id,)).fetchone()
@@ -336,6 +350,7 @@ class BookCustody:
                     raise LabError("Invalid or unchanged placement target")
                 if any(o["anchor_id"] == destination for o in effective.values()):
                     raise Conflict("A physical object already occupies that location")
+                check_surface(active_profile, book_id, destination, host)
                 action = {"op": "operator_place", "object_id": book_id,
                           "from_anchor": before, "anchor_id": destination}
             elif operation == "take":
@@ -345,6 +360,7 @@ class BookCustody:
                     raise LabError("Book is already carried")
                 if _station_for_anchor(host["state"]["anchors"], before) != body["station"]:
                     raise LabError("Approach the book before picking it up")
+                check_actor_reach(active_profile, book_id, before, host, lifting=True)
                 action = {"op": "take", "book_id": book_id, "from_anchor": before}
             else:
                 if before is not None or effective[book_id].get("held_by") != SUBJECT_ID:
@@ -356,6 +372,8 @@ class BookCustody:
                     raise LabError("Not a supported physical surface")
                 if any(x["anchor_id"] == destination for x in effective.values()):
                     raise Conflict("Destination occupied")
+                check_actor_reach(active_profile, book_id, destination, host, lifting=False)
+                check_surface(active_profile, book_id, destination, host)
                 action = {"op": "put", "book_id": book_id, "anchor_id": destination}
             updated = _apply(meta["items"], action, sandbox=meta["mode"] == "sandbox")
             event = {
@@ -366,6 +384,8 @@ class BookCustody:
                 "world_revision": host["revision"], "world_cursor": host["head_hash"],
                 "annex_revision": ar, "annex_cursor": ah,
                 "before_digest": digest(meta["items"]), "after_digest": digest(updated),
+                **({"mechanical_profile_digest": digest(active_profile)}
+                   if active_profile is not None else {}),
                 "previous_hash": meta["head_hash"], "recorded_utc": _utc(),
                 "claim": "trusted_local_object_transfer_not_proof_of_subject_agency",
             }
