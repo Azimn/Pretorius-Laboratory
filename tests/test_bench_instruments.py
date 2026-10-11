@@ -58,7 +58,7 @@ class InstrumentTests(unittest.TestCase):
 
     def test_balance_reports_bounded_value_not_raw_profile(self):
         self.bench()
-        result = self.instrument.measure("balance:bench", "beaker:001", "mass_g")
+        result = self.actor.measure("balance:bench", "beaker:001", "mass_g")
         self.assertEqual(result["observation"]["value"], 325)
         self.assertEqual(result["observation"]["interval"], [312,338])
         self.assertEqual(result["observation"]["resolution"], 25)
