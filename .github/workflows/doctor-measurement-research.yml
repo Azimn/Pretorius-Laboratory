@@ -1,0 +1,59 @@
+name: Doctor Lives x Laboratory research admission gate
+on:
+  pull_request:
+    paths:
+      - "pretorius_lab/doctor_admission_research.py"
+      - "tests/test_doctor_admission_research.py"
+      - "tools/run_doctor_instrument_pilot.py"
+      - ".github/workflows/doctor-measurement-research.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-cross-repository:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout standalone laboratory at review head
+        uses: actions/checkout@v4
+        with:
+          path: laboratory
+      - name: Checkout canonical Doctor cognition at frozen revision
+        uses: actions/checkout@v4
+        with:
+          repository: Azimn/The-Doctor-Lives
+          ref: 56aab5493ef48cdb560881a138b2277ca6ebcce0
+          path: doctor-cognition
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify pinned cognition is exact source
+        run: |
+          test "$(git -C doctor-cognition rev-parse HEAD)" = "56aab5493ef48cdb560881a138b2277ca6ebcce0"
+          git -C laboratory rev-parse HEAD > lab-head.txt
+          git -C doctor-cognition rev-parse HEAD > doctor-head.txt
+      - name: Install two independent repository packages
+        run: |
+          python -m pip install -e ./doctor-cognition
+          python -m pip install -e ./laboratory
+      - name: Run gated real brain and physical world integration tests
+        working-directory: laboratory
+        run: |
+          python -m unittest discover -s tests -p "test_doctor_admission_research.py" -v
+      - name: Execute fresh-process matched control experiment
+        working-directory: laboratory
+        run: |
+          python tools/run_doctor_instrument_pilot.py --output "$RUNNER_TEMP/doctor-lab-pilot"
+          cp "$RUNNER_TEMP/doctor-lab-pilot/score.json" ../score.json
+          cat ../score.json
+      - name: Preserve empirical pilot receipts and replay evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctor-laboratory-research-measurement-pilot
+          path: |
+            score.json
+            lab-head.txt
+            doctor-head.txt
+          if-no-files-found: error
+          retention-days: 60
