@@ -56,7 +56,9 @@ def source_visible_in_saved_memory(bridge) -> bool:
     ]
     if len(records) > 1 or any(
             r["evidence_class"] != "lived_runtime_memory" or
-            "325 g" not in r["text"] for r in records):
+            not r["text"].startswith(
+                "I receive this result from the tool: The balance before me reads ")
+            for r in records):
         raise Conflict("Invalid or duplicated source-identified stored observation")
     return len(records) == 1
 
