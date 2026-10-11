@@ -22,16 +22,20 @@ from pretorius_lab.embodied_access import EmbodiedAccess
 from pretorius_lab.physics import Conflict
 from run_doctor_instrument_pilot import create_arm, neural_config
 
-RULES = "doctor-lab-delayed-policy-battery/1"
+RULES = "doctor-lab-delayed-policy-battery/2"
+# Preregistered engineering sweep; includes original null-example seed 1842.
+SEEDS = (11, 31, 47, 127, 1842, 2026)
 GOAL = ("Please find out the laboratory beaker's weight to the balance's "
         "accuracy before leaving this workbench, without unnecessary repetition.")
 
 
-def _load(root, policy, condition):
-    folder = root / policy / condition
+def _load(root, seed, policy, condition):
+    folder = root / str(seed) / policy / condition
+    config = neural_config()
+    config["seed"] = seed
     bridge = ResearchInstrumentAdmission(
         folder / "world.sqlite3", folder / "brain",
-        neural_config=neural_config())
+        neural_config=config)
     gate = LegalBenchActionGate(bridge.habitat)
     return folder, bridge, gate
 
@@ -67,9 +71,11 @@ def build(root):
     if root.exists() and any(root.iterdir()):
         raise RuntimeError("Refuse to reuse a research directory")
     root.mkdir(parents=True, exist_ok=True)
-    for policy in ("doctor_policy", "stateful_non_neural"):
-        for condition in ("observed", "withheld"):
-            create_arm(root / policy, condition)
+    for seed in SEEDS:
+        for policy in ("doctor_policy", "stateful_non_neural"):
+            for condition in ("observed", "withheld"):
+                create_arm(root / str(seed) / policy, condition,
+                           neural_override={"seed": seed})
     # Both next-session actions and independent scoring use new interpreters.
     subprocess.run([sys.executable, __file__, "--output", str(root),
                     "--choose"], check=True)
@@ -78,9 +84,10 @@ def build(root):
 
 
 def choose(root):
-    for policy in ("doctor_policy", "stateful_non_neural"):
+    for seed in SEEDS:
+      for policy in ("doctor_policy", "stateful_non_neural"):
         for condition in ("observed", "withheld"):
-            folder, bridge, gate = _load(root, policy, condition)
+            folder, bridge, gate = _load(root, seed, policy, condition)
             bridge.verify()
             offer = gate.offer()
             if "weigh" not in offer.choices:
@@ -144,7 +151,7 @@ def choose(root):
             bridge.verify()
             (folder / "delayed_choice.json").write_text(
                 json.dumps({
-                    "schema": RULES, "policy": policy,
+                    "schema": RULES, "policy": policy, "seed": seed,
                     "source_exposure": condition, "goal": GOAL,
                     "offer": {"choices": list(offer.choices),
                               "subject_native_options": list(offer.subject_native_options)},
@@ -158,6 +165,7 @@ def score(root):
     outcomes = {
         "schema": RULES,
         "goal": GOAL,
+        "seeds": list(SEEDS),
         "interpretation": [
             "true production Pretorius abstract policy tendencies",
             "fixed non-learned action-label mapping (not generative choice)",
@@ -167,14 +175,17 @@ def score(root):
         ],
         "arms": {},
     }
-    for policy in ("doctor_policy", "stateful_non_neural"):
-        outcomes["arms"][policy] = {}
+    for seed in SEEDS:
+      outcomes["arms"][str(seed)] = {}
+      for policy in ("doctor_policy", "stateful_non_neural"):
+        outcomes["arms"][str(seed)][policy] = {}
         for condition in ("observed", "withheld"):
-            folder, bridge, gate = _load(root, policy, condition)
+            folder, bridge, gate = _load(root, seed, policy, condition)
             bridge.verify()
             history = json.loads((folder / "delayed_choice.json").read_text())
-            if (history["policy"], history["source_exposure"], history["schema"]) != (
-                    policy, condition, RULES):
+            if (history["policy"], history["source_exposure"],
+                history["schema"], history["seed"]) != (
+                    policy, condition, RULES, seed):
                 raise Conflict("Trial labels were changed")
             proposal, receipt = history["proposal"], history["host_receipt"]
             if receipt["accepted"]:
@@ -216,7 +227,7 @@ def score(root):
                 receipt=receipt,
                 before_instrument_events=history["instrument_events_before"],
                 after_instrument_events=instrument_final)
-            outcomes["arms"][policy][condition] = {
+            outcomes["arms"][str(seed)][policy][condition] = {
                 "brain_checkpoint_reopened": True,
                 "initial_verified_host_measurement": True,
                 "original_source_memory_count": len(original),
@@ -226,11 +237,27 @@ def score(root):
                 "host_accepted": receipt["accepted"],
                 "outcome": scored,
             }
-    for policy, trials in outcomes["arms"].items():
+    for policy in ("doctor_policy", "stateful_non_neural"):
+        trials = [
+            outcomes["arms"][str(seed)][policy][condition]
+            for seed in SEEDS
+            for condition in ("observed", "withheld")
+        ]
         outcomes.setdefault("summary", {})[policy] = {
             "correct_delayed_decisions": sum(
-                int(v["outcome"]["success"]) for v in trials.values()),
+                int(v["outcome"]["success"]) for v in trials),
             "opportunities": len(trials),
+            "per_seed": {
+                str(seed): {
+                    condition: outcomes["arms"][str(seed)][policy][condition][
+                        "outcome"]["success"]
+                    for condition in ("observed", "withheld")}
+                for seed in SEEDS},
+            "actual_choices_by_condition": {
+                condition: [
+                    outcomes["arms"][str(seed)][policy][condition]["proposed_choice"]
+                    for seed in SEEDS
+                ] for condition in ("observed", "withheld")},
         }
     (root / "score.json").write_text(
         json.dumps(outcomes, indent=2, sort_keys=True) + "\n",
