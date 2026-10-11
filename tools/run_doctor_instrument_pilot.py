@@ -28,7 +28,7 @@ def neural_config():
     return settings
 
 
-def create_arm(output, condition):
+def create_arm(output, condition, *, neural_override=None):
     root = output / condition
     root.mkdir(parents=True)
     world = SpatialHabitat.create(root / "world.sqlite3")
@@ -41,8 +41,11 @@ def create_arm(output, condition):
     actor.move("station:center")
     actor.move("station:bench")
     measurement = actor.measure("balance:bench", "beaker:001", "mass_g")
+    config = neural_config()
+    if neural_override is not None:
+        config.update(neural_override)
     bridge = ResearchInstrumentAdmission(world.path, root / "brain",
-                                         neural_config=neural_config())
+                                         neural_config=config)
     result = bridge.deliver(measurement, condition=condition)
     bridge.verify()
     brain_digest = bridge.brain.save()
