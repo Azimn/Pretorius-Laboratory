@@ -36,6 +36,31 @@ def _load(root, policy, condition):
     return folder, bridge, gate
 
 
+def source_visible_in_saved_memory(bridge) -> bool:
+    """Source-bound retrieval-only baseline: never read treatment assignment.
+
+    This is a deliberately strong non-neural DECISION controller that shares
+    the same existing brain storage substrate for received observations.
+    It does not inspect host mass or intervention labels.
+    """
+    bridge.verify()
+    with bridge.habitat._open() as db:
+        first = db.execute(
+            "SELECT event_hash FROM instrument_events WHERE revision=1").fetchone()
+    if first is None:
+        raise Conflict("No original accepted measurement for retrieval")
+    memory_source = "laboratory-instrument:" + first[0]
+    records = [
+        m for m in bridge.brain.brain.store.memories()
+        if m["source"] == memory_source
+    ]
+    if len(records) > 1 or any(
+            r["evidence_class"] != "lived_runtime_memory" or
+            "325 g" not in r["text"] for r in records):
+        raise Conflict("Invalid or duplicated source-identified stored observation")
+    return len(records) == 1
+
+
 def build(root):
     if root.exists() and any(root.iterdir()):
         raise RuntimeError("Refuse to reuse a research directory")
@@ -68,10 +93,11 @@ def choose(root):
             if policy == "doctor_policy":
                 proposal = propose_from_brain(bridge.brain, offer)
             else:
-                # Comparator sees only whether the actual source-bound
-                # measurement memory was delivered, not the host's raw mass.
+                # Comparator consults its own source-matched persisted
+                # measurement memory. It is NEVER passed the condition label.
                 proposal = propose_stateful_non_neural(
-                    observed=(condition == "observed"), offer=offer)
+                    observed=source_visible_in_saved_memory(bridge),
+                    offer=offer)
             events_before = bridge.instruments.verify()["revision"]
             receipt = gate.execute(
                 proposal["choice"],
