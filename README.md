@@ -163,6 +163,22 @@ Unlike legacy v2 placement, a new integrated operator move creates a separately 
 
 See [Unified Effective Occupancy](docs/UNIFIED_EFFECTIVE_OCCUPANCY_2026-10-10.md) for event semantics, reproducible before/after cases, 17-volume source integration and remaining constraints.
 
+## Optional synthetic mass, size and reach constraints
+
+The opt-in mechanical profile adds **source-labelled test assumptions** about physical dimensions (mm), mass (g), surface aperture/load and a local actor's lift/reach limits for all seventeen catalogued book IDs and the beaker. Once activated in a custody-enabled lab, book pickup, putting books down, and trusted operator placements enforce real integer constraints in the same SQLite action transaction. An overweight book cannot be lifted; an oversized book cannot be shelved; and an object beyond declared vertical reach cannot be handled merely by standing at the correct station. Denied actions preserve state and event history.
+
+This is an **engineered simulation profile, not authentic measurements of Victorian bindings or Pretorius's body**. It is frozen and checksum-verified per world epoch, included in verified backup and sandbox forks, and hidden from subject-facing observations. A separate test world may initialize with a different strict source-labelled JSON profile; existing worlds cannot change physical assumptions silently.
+
+~~~bash
+python -m pretorius_lab.habitat_v2 --db data/mechanical-lab.sqlite3 init
+python -m pretorius_lab.embodied_cli --db data/mechanical-lab.sqlite3 init
+python -m pretorius_lab.embodied_cli --db data/mechanical-lab.sqlite3 init-custody
+python -m pretorius_lab.affordance_cli --db data/mechanical-lab.sqlite3 init
+python -m pretorius_lab.affordance_cli --db data/mechanical-lab.sqlite3 verify
+~~~
+
+See [Synthetic Mechanical Affordances](docs/SYNTHETIC_MECHANICAL_AFFORDANCES_2026-10-10.md) for full numeric assumptions, scope, engineer-only diagnostics, falsifying tests and limitations. No dynamic grasping, exact collisions, authenticated instruments, human embodiment, or autonomous cognition is claimed.
+
 ## Offline episode and reconciliation
 
 \`\`\`bash

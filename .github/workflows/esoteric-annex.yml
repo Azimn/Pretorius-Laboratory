@@ -78,6 +78,7 @@ jobs:
         run: |
           db="$RUNNER_TEMP/esoteric-library/laboratory.sqlite3"
           python -m pretorius_lab.embodied_cli --db "$db" init-custody
+          python -m pretorius_lab.affordance_cli --db "$db" init > "$RUNNER_TEMP/esoteric-library/mechanical-initial-proof.json"
           python -m pretorius_lab.habitat_v2 --db "$db" act place beaker:001 floor:corner:se
           python -m pretorius_lab.embodied_cli --db "$db" take book:008
           python -m pretorius_lab.habitat_v2 --db "$db" scan shelf:1 > "$RUNNER_TEMP/esoteric-library/after-pickup-shelf1.json"
@@ -92,8 +93,10 @@ jobs:
           python -m pretorius_lab.habitat_v2 --db "$db" act place beaker:001 shelf:1/slot:1 > "$RUNNER_TEMP/esoteric-library/reused-slot-operator-receipt.json"
           python -m pretorius_lab.habitat_v2 --db "$db" scan shelf:1 > "$RUNNER_TEMP/esoteric-library/reused-shelf1-with-beaker.json"
           python -m pretorius_lab.embodied_cli --db "$db" verify-custody > "$RUNNER_TEMP/esoteric-library/custody-proof.json"
+          python -m pretorius_lab.affordance_cli --db "$db" verify > "$RUNNER_TEMP/esoteric-library/mechanical-final-proof.json"
           python -m pretorius_lab.habitat_v2 --db "$db" backup "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3"
           python -m pretorius_lab.embodied_cli --db "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3" verify-custody
+          python -m pretorius_lab.affordance_cli --db "$RUNNER_TEMP/esoteric-library/handled-17-volume-backup.sqlite3" verify
           python - <<'PY'
           import json, os
           from pathlib import Path
@@ -101,6 +104,9 @@ jobs:
           shelf = json.loads((root/"after-pickup-shelf1.json").read_text())
           bench = json.loads((root/"after-drop-workbench.json").read_text())
           read = json.loads((root/"workbench-source-read.json").read_text())
+          mechanics = json.loads((root/"mechanical-final-proof.json").read_text())
+          assert mechanics["source_class"] == "synthetic_declared_not_measured"
+          assert mechanics["object_count"] == 18
           reused = json.loads((root/"reused-shelf1-with-beaker.json").read_text())
           op = json.loads((root/"reused-slot-operator-receipt.json").read_text())
           assert shelf["positions"][0]["occupant"] is None

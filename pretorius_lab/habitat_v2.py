@@ -403,6 +403,11 @@ class SpatialHabitat:
 
     def backup_to(self, destination: str | Path) -> dict:
         self.verify()
+        from .physical_affordances import PhysicalAffordances, exists as affordances_exist
+        with self._open() as db:
+            has_affordances = affordances_exist(db)
+        if has_affordances:
+            PhysicalAffordances(self).verify()
         from .book_custody import BookCustody, exists as custody_exists
         with self._open() as db:
             has_custody = custody_exists(db)
@@ -460,11 +465,18 @@ class SpatialHabitat:
             EmbodiedAccess(SpatialHabitat(dest)).verify()
         if has_custody:
             BookCustody(SpatialHabitat(dest)).verify()
+        if has_affordances:
+            PhysicalAffordances(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
         """Create a new *unpublishable* test world from a verified snapshot."""
         m = self._verified_status()
+        from .physical_affordances import PhysicalAffordances, exists as affordances_exist
+        with self._open() as db:
+            has_affordances = affordances_exist(db)
+        if has_affordances:
+            PhysicalAffordances(self).verify()
         from .book_custody import BookCustody, exists as custody_exists
         with self._open() as db:
             has_custody = custody_exists(db)
@@ -515,6 +527,10 @@ class SpatialHabitat:
             EmbodiedAccess(self)._fork_into(clone)
         if has_custody:
             BookCustody(self)._fork_into(clone)
+        if has_affordances:
+            # The copied effective positions must exist before validating
+            # nondefault size profiles against the new branch's world.
+            PhysicalAffordances(self)._fork_into(clone)
         if has_books:
             BookLibrary(self)._fork_into(clone)
         if has_observations:

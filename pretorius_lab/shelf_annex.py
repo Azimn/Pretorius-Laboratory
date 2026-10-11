@@ -228,6 +228,10 @@ class ShelfAnnex:
                     if any(obj["anchor_id"] == action["anchor_id"]
                            for obj in effective_objects(db).values()):
                         raise Conflict("Destination occupied in effective world")
+            if action["op"] in {"register", "move"}:
+                from .physical_affordances import profile_at, check_surface
+                profile = profile_at(db, host)
+                check_surface(profile, action["book_id"], action["anchor_id"], host)
             updated = _apply(m["items"], action, anchors=host["state"]["anchors"],
                              core=host["state"]["objects"], branch=m["mode"],
                              revision=m["revision"] + 1)
