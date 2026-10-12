@@ -29,6 +29,9 @@ def main(argv=None):
     put = sub.add_parser("put")
     put.add_argument("book_id")
     put.add_argument("destination")
+    liq = sub.add_parser("liquid")
+    liq.add_argument("operation", choices=("fill", "pour"))
+    liq.add_argument("amount_ml", type=int)
     ap_take = sub.add_parser("take-apparatus")
     ap_take.add_argument("object_id")
     ap_put = sub.add_parser("put-apparatus")
@@ -69,6 +72,8 @@ def main(argv=None):
             result = actor.take(args.book_id)
         elif args.command == "put":
             result = actor.put(args.book_id, args.destination)
+        elif args.command == "liquid":
+            result = actor.liquid(args.operation, args.amount_ml)
         elif args.command == "take-apparatus":
             result = actor.take_apparatus(args.object_id)
         elif args.command == "put-apparatus":
