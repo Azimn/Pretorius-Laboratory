@@ -122,6 +122,22 @@ def _scene(db, host: dict, station: str) -> dict:
         "room:experiment": ["experimental table", "sanctum doorway"],
     }
     from .bench_instruments import exists as bench_instruments_exist
+    from .bench_liquids import exists as liquids_exist, volume_at, public_level
+    water_level, liquid_actions = None, []
+    if liquids_exist(db):
+        material = volume_at(db)
+        vessel = objects["beaker:001"]
+        if (vessel.get("held_by") == SUBJECT_ID or
+                (station == "station:bench" and
+                 vessel["anchor_id"] == "bench:main/position:left")):
+            water_level = public_level(material["beaker_ml"])
+        if (station == "station:bench" and
+                vessel["anchor_id"] == "bench:main/position:left" and
+                vessel["condition"] == "intact"):
+            if material["reservoir_ml"] and material["beaker_ml"] < 250:
+                liquid_actions.append("fill")
+            if material["beaker_ml"] and material["basin_ml"] < 1000:
+                liquid_actions.append("pour")
     tools_visible = (["ruler:bench", "balance:bench"]
                      if station == "station:bench" and bench_instruments_exist(db)
                      else [])
@@ -132,6 +148,8 @@ def _scene(db, host: dict, station: str) -> dict:
         "nearby_objects": locally_visible,
         "held_objects": carrying,
         "available_instruments": tools_visible,
+        "beaker_water_level": water_level,
+        "available_liquid_actions": liquid_actions,
         "available_moves": sorted(neighbors),
         "access_level": "qualitative_local_not_global_survey",
         "observation_class": "offered_not_proof_of_subject_attention",
@@ -276,6 +294,11 @@ class EmbodiedAccess:
         if kind not in ("move", "look"):
             raise LabError("Unsupported embodied command")
         if kind == "look":
+            from .bench_liquids import BenchLiquids, exists as liquid_exists
+            with self.habitat._open() as check:
+                has_liquid = liquid_exists(check)
+            if has_liquid:
+                BenchLiquids(self.habitat).verify()
             from .book_library import BookLibrary
             with self.habitat._open() as check:
                 has_books = check.execute(
@@ -385,6 +408,12 @@ class EmbodiedAccess:
         from .book_custody import BookCustody
         return BookCustody(self.habitat).act(
             "put", book_id, destination=anchor_id, event_id=event_id)
+
+    def liquid(self, operation: str, ml: int, *, event_id: str | None = None) -> dict:
+        """Operate source-bounded water transfer only at the actual workbench."""
+        self.verify()
+        from .bench_liquids import BenchLiquids
+        return BenchLiquids(self.habitat).transfer(operation, ml, event_id=event_id)
 
     def take_apparatus(self, object_id: str, *, event_id: str | None = None) -> dict:
         """Pick up an intact beaker through the verified custody port."""
