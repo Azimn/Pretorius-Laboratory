@@ -36,7 +36,7 @@ TASKS = (
      "I need to depart the bench immediately, regardless of any previous mass measurement.",
      "leave", "leave"),
 )
-METHODS = ("no_recall", "model_selected_recall")
+METHODS = ("no_recall", "model_selected_recall", "allocated_model_question")
 SCHEMA = "laboratory-mediated-recall-diagnostic/1"
 
 
@@ -94,7 +94,8 @@ def choose(root, model_name):
                 decision = select_and_act(
                     br.brain, offer, task[1], model,
                     order_index=(task_index + condition_index) % 3,
-                    enable_recall=(method == "model_selected_recall"))
+                    enable_recall=(method != "no_recall"),
+                    allocated_question=(method == "allocated_model_question"))
                 proposal = decision["choice"]
                 result = gate.execute(
                     proposal, event_id=f"diagnostic-{method}-{task[0]}-{condition}")
@@ -133,6 +134,7 @@ def score(root, model_name):
             "model controls only recall inquiry and delayed legal action",
             "existing Doctor render_request treats generated query as an external user cue",
             "permutation effects and invalid questions are reported without correction",
+            "allocated_model_question is research-assigned inquiry; NOT spontaneous self-initiated recall",
         ],
         "methods": {},
     }
