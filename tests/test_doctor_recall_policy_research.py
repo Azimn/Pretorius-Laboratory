@@ -66,7 +66,7 @@ class RecallBoundaryTests(unittest.TestCase):
             result = select_and_act(
                 port, self.offer, self.goal,
                 Decoder(["A", "What do I remember of the beaker?", "A"])
-                if order[0] == "recall" else Decoder(["A"]),
+                if order[0] == "recall" else Decoder(["A", "A"]),
                 order_index=i, enable_recall=True)
             self.assertEqual(result["recall_decision"], order[0])
             if order[0] == "abstain":
