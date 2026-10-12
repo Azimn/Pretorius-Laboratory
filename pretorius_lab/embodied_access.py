@@ -386,6 +386,21 @@ class EmbodiedAccess:
         return BookCustody(self.habitat).act(
             "put", book_id, destination=anchor_id, event_id=event_id)
 
+    def take_apparatus(self, object_id: str, *, event_id: str | None = None) -> dict:
+        """Pick up an intact beaker through the verified custody port."""
+        self.verify()
+        from .book_custody import BookCustody
+        return BookCustody(self.habitat).act(
+            "take_apparatus", object_id, event_id=event_id)
+
+    def put_apparatus(self, object_id: str, anchor_id: str, *,
+                      event_id: str | None = None) -> dict:
+        """Place held apparatus onto a nearby vacant bench or floor anchor."""
+        self.verify()
+        from .book_custody import BookCustody
+        return BookCustody(self.habitat).act(
+            "put_apparatus", object_id, destination=anchor_id, event_id=event_id)
+
     def _fork_into(self, clone: SpatialHabitat) -> None:
         self.verify()
         with self.habitat._open() as db:
