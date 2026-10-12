@@ -3,8 +3,12 @@ on:
   pull_request:
     paths:
       - "pretorius_lab/doctor_admission_research.py"
+      - "pretorius_lab/doctor_legal_action_research.py"
+      - "tests/test_doctor_legal_action_research.py"
+      - "tools/run_doctor_action_pilot.py"
       - "tests/test_doctor_admission_research.py"
       - "tools/run_doctor_instrument_pilot.py"
+      - "tools/diagnose_doctor_frame_recall.py"
       - ".github/workflows/doctor-measurement-research.yml"
   workflow_dispatch:
 permissions:
@@ -41,18 +45,32 @@ jobs:
         working-directory: laboratory
         run: |
           python -m unittest discover -s tests -p "test_doctor_admission_research.py" -v
+          python -m unittest discover -s tests -p "test_doctor_legal_action_research.py" -v
       - name: Execute fresh-process matched control experiment
         working-directory: laboratory
         run: |
           python tools/run_doctor_instrument_pilot.py --output "$RUNNER_TEMP/doctor-lab-pilot"
           cp "$RUNNER_TEMP/doctor-lab-pilot/score.json" ../score.json
           cat ../score.json
+      - name: Audit protected-frame retrieval without subject-engineer leakage
+        working-directory: laboratory
+        run: |
+          python tools/diagnose_doctor_frame_recall.py --output "$RUNNER_TEMP/doctor-lab-pilot"
+          cp "$RUNNER_TEMP/doctor-lab-pilot/protected-frame-retrieval-audit.json" ../frame-retrieval-audit.json
+      - name: Execute delayed action-choice real brain and stateful baseline
+        working-directory: laboratory
+        run: |
+          python tools/run_doctor_action_pilot.py --output "$RUNNER_TEMP/doctor-lab-action-pilot"
+          cp "$RUNNER_TEMP/doctor-lab-action-pilot/score.json" ../action-score.json
+          cat ../action-score.json
       - name: Preserve empirical pilot receipts and replay evidence
         uses: actions/upload-artifact@v4
         with:
           name: doctor-laboratory-research-measurement-pilot
           path: |
             score.json
+            action-score.json
+            frame-retrieval-audit.json
             lab-head.txt
             doctor-head.txt
           if-no-files-found: error
