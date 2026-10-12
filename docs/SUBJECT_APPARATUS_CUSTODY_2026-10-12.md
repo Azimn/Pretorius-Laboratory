@@ -30,3 +30,11 @@ To repeat on Python 3.10+ with no downloaded model or paid APIs:
     python examples/direct_lab_session.py --output /tmp/model-free-apparatus
 
 The output includes a directly scored JSON trace and isolated SQLite world, backup and fork artifacts.
+
+## Verified execution evidence
+
+The final exact-branch [direct session CI run 38212173978](https://github.com/Azimn/Pretorius-Laboratory/actions/runs/38212173978) completed all **23** trace stages, rejected all **8** deliberately invalid physical operations without changing accepted event revisions, and passed **9** final replay/backup/fork/measurement integrity checks. Its independent regression run completed **129/129** Python tests, including seven apparatus-specific test cases.
+
+The crucial new result was the removal of the privileged engineer move from the subject's bench-clearing sequence. The subject actually picked up the measured beaker, carried it to the southeast corner, placed it down, handled the book on the newly available bench and then encountered a verified double-occupancy rejection when bringing the beaker back. The serialized trace, parent-world backup, fork and damage fixture were saved by GitHub Actions.
+
+These results validate the specified discrete simulation mechanics on the tested scenarios, not the behavior of a learned or autonomous controller. The branch is a review candidate and has not been promoted into the canonical character or Village.
