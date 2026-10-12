@@ -196,5 +196,37 @@ class WaterTests(unittest.TestCase):
         self.assertEqual(BenchInstruments(SpatialHabitat(self.world.path)).verify()["revision"], 2)
 
 
+    def test_world_damage_denied_while_empty_beaker_is_physically_carried(self):
+        self.bench()
+        self.actor.take_apparatus("beaker:001")
+        before_world = self.world.verify()["revision"]
+        before_custody = self.custody.verify()["revision"]
+        with self.assertRaisesRegex(LabError, "held"):
+            self.world.commit({"op": "break", "object_id": "beaker:001"})
+        self.assertEqual(self.world.verify()["revision"], before_world)
+        self.assertEqual(self.custody.verify()["revision"], before_custody)
+        self.assertEqual(self.world.locate("beaker:001")["location"]["placement"],
+                         "carried")
+        self.assertTrue(self.physical.verify()["verified"])
+
+    def test_fork_liquid_reinitialization_cannot_reset_inherited_inventory(self):
+        self.bench()
+        self.actor.liquid("fill", 100)
+        childpath = self.root / "freshchild.sqlite3"
+        self.world.fork_to(childpath)
+        fork = SpatialHabitat(childpath)
+        water = BenchLiquids(fork)
+        self.assertEqual(water.verify()["revision"], 0)
+        self.assertEqual(water.initialize()["revision"], 0)
+        self.assertEqual(water.audit_engineer_only()["beaker_ml"], 100)
+        with self.assertRaises(Conflict):
+            self.water.initialize(_fork_origin={
+                "reservoir_ml": 900, "beaker_ml": 100, "basin_ml": 0
+            }, _parent={
+                "parent_epoch": "invented", "parent_revision": 1,
+                "parent_cursor": "false", "claim": "not a fork",
+            })
+        self.assertEqual(self.water.audit_engineer_only()["beaker_ml"], 100)
+
 if __name__ == "__main__":
     unittest.main()
