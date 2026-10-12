@@ -17,6 +17,7 @@ from pretorius_lab.doctor_legal_action_research import (
     LegalBenchActionGate, ActionOffer, RULESET, LABELS,
 )
 from pretorius_lab.doctor_subject_frame_proposer import PinnedSmolLM2
+from pretorius_lab.doctor_stronger_local_decoder import PinnedQwen25
 from pretorius_lab.doctor_recall_policy_research import select_and_act, protected
 from pretorius_lab.physics import Conflict
 from run_doctor_instrument_pilot import create_arm, neural_config
@@ -35,7 +36,7 @@ TASKS = (
      "I need to depart the bench immediately, regardless of any previous mass measurement.",
      "leave", "leave"),
 )
-METHODS = ("no_recall", "model_selected_recall")
+METHODS = ("no_recall", "model_selected_recall", "allocated_model_question")
 SCHEMA = "laboratory-mediated-recall-diagnostic/1"
 
 
@@ -49,7 +50,7 @@ def bridge_for(loc):
         neural_config=neural_config())
 
 
-def build(root):
+def build(root, model_name):
     if root.exists() and any(root.iterdir()):
         raise RuntimeError("Refuse to overwrite preexisting trial states")
     root.mkdir(parents=True, exist_ok=True)
@@ -58,9 +59,9 @@ def build(root):
             for condition in ("observed", "withheld"):
                 create_arm(root / method / task[0], condition)
     subprocess.run([sys.executable, __file__, "--output", str(root),
-                    "--choose"], check=True)
+                    "--model", model_name, "--choose"], check=True)
     subprocess.run([sys.executable, __file__, "--output", str(root),
-                    "--score"], check=True)
+                    "--model", model_name, "--score"], check=True)
 
 
 def _shuffled_offer(offer, index):
@@ -72,8 +73,15 @@ def _shuffled_offer(offer, index):
     return ActionOffer(RULESET, order, tuple(LABELS[x] for x in order))
 
 
-def choose(root):
-    model = PinnedSmolLM2()
+def choose(root, model_name):
+    model = PinnedQwen25() if model_name == "qwen25_1p5b" else PinnedSmolLM2()
+    (root / "decoder-provenance.json").write_text(
+        json.dumps({
+            "model_id": model.model_id,
+            "model_revision": getattr(model, "resolved_revision", model.revision),
+            "experiment_variant": model_name,
+            "cpu_only": True,
+        }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     for method in METHODS:
         for task_index, task in enumerate(TASKS):
             for condition_index, condition in enumerate(("observed", "withheld")):
@@ -86,7 +94,8 @@ def choose(root):
                 decision = select_and_act(
                     br.brain, offer, task[1], model,
                     order_index=(task_index + condition_index) % 3,
-                    enable_recall=(method == "model_selected_recall"))
+                    enable_recall=(method != "no_recall"),
+                    allocated_question=(method == "allocated_model_question"))
                 proposal = decision["choice"]
                 result = gate.execute(
                     proposal, event_id=f"diagnostic-{method}-{task[0]}-{condition}")
@@ -111,15 +120,21 @@ def choose(root):
                     encoding="utf-8")
 
 
-def score(root):
+def score(root, model_name):
+    provenance = json.loads((root / "decoder-provenance.json").read_text())
+    if provenance["experiment_variant"] != model_name:
+        raise Conflict("Scoring a different decoder from the one actually run")
     out = {
-        "schema": SCHEMA, "model": "pinned-local-SmollM2-135M",
+        "schema": SCHEMA, "model": provenance["model_id"],
+        "model_revision": provenance["model_revision"],
+        "experiment_variant": model_name,
         "claims": [
             "diagnostic, NOT independent heldout or measured memory improvement",
             "original instrument action remains experimenter-scripted",
             "model controls only recall inquiry and delayed legal action",
             "existing Doctor render_request treats generated query as an external user cue",
             "permutation effects and invalid questions are reported without correction",
+            "allocated_model_question is research-assigned inquiry; NOT spontaneous self-initiated recall",
         ],
         "methods": {},
     }
@@ -197,17 +212,19 @@ def score(root):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--model", choices=("smol135", "qwen25_1p5b"),
+                   default="smol135")
     g = p.add_mutually_exclusive_group()
     g.add_argument("--choose", action="store_true")
     g.add_argument("--score", action="store_true")
     args = p.parse_args()
     root = args.output.resolve()
     if args.choose:
-        choose(root)
+        choose(root, args.model)
     elif args.score:
-        score(root)
+        score(root, args.model)
     else:
-        build(root)
+        build(root, args.model)
 
 
 if __name__ == "__main__":

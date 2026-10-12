@@ -49,12 +49,15 @@ class _ProjectedOnlyPort:
 
 
 def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
-                   order_index: int, enable_recall: bool) -> dict:
+                   order_index: int, enable_recall: bool,
+                   allocated_question: bool = False) -> dict:
     if offer.ruleset != RULESET or type(order_index) is not int or not (
             0 <= order_index < len(ORDERINGS)):
         raise LabError("Invalid recall offer")
     if not isinstance(goal, str) or not 10 <= len(goal) <= 300:
         raise LabError("Invalid first-person goal")
+    if allocated_question and not enable_recall:
+        raise LabError("Allocated question requires the recall-enabled research arm")
     original = protected(port, goal)
     decision = "disabled"
     question = None
@@ -73,11 +76,17 @@ def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
                       for letter, action in labels.items()) +
             "\nReply with only A, B or C."
         )
-        raw = decoder.complete(prompt)
-        found = re.fullmatch(
-            r"(?:OPTION\s+)?([ABC])[.]?", raw.strip(), re.I
-        ) if isinstance(raw, str) else None
-        decision = labels.get(found.group(1).upper(), "abstain") if found else "abstain"
+        if allocated_question:
+            # The experiment assigns one inquiry opportunity. The *content*
+            # must still come from the model; no researcher-supplied retrieval
+            # key or preferred answer is allowed. This is not spontaneous recall.
+            decision = "recall"
+        else:
+            raw = decoder.complete(prompt)
+            found = re.fullmatch(
+                r"(?:OPTION\s+)?([ABC])[.]?", raw.strip(), re.I
+            ) if isinstance(raw, str) else None
+            decision = labels.get(found.group(1).upper(), "abstain") if found else "abstain"
         if decision == "recall":
             ask = (
                 "I want to ask myself a short question about something I may "
@@ -99,6 +108,7 @@ def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
                         "sqlite", "memory_id", "profile_digest", "source_hash"))):
                 question = candidate.strip()
                 # This existing port uses EXTERNALLY CUED query semantics.
+                # No host check for a correct answer selects a different cue.
                 queried = protected(port, question)
             else:
                 decision = "invalid_question_abstain"
@@ -112,7 +122,9 @@ def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
     act = choose_from_subject_frame(
         _ProjectedOnlyPort(combined), offer, goal, decoder)
     return {"policy": VERSION, "choice": act["choice"],
-            "recall_decision": decision, "generated_query": question,
+            "recall_decision": decision,
+            "allocated_question": allocated_question,
+            "generated_query": question,
             "used_extra_frame": bool(queried),
             "model_raw_action": act["model_raw_output"],
             "model_output_invalid": act["invalid_output"],
