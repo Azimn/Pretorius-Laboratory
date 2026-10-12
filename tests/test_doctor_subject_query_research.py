@@ -10,7 +10,7 @@ import unittest
 from pretorius_lab import LabError
 from pretorius_lab.doctor_subject_query_research import SubjectOwnedQuery, SCHEMA
 from pretorius_lab.doctor_admission_research import ResearchInstrumentAdmission
-from run_doctor_instrument_pilot import create_arm, neural_config
+from tools.run_doctor_instrument_pilot import create_arm, neural_config
 
 
 class SubjectOwnedResearchQueryTests(unittest.TestCase):
