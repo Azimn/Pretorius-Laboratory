@@ -43,3 +43,19 @@ Scoring happens in a separate Python interpreter reopening real saved world and 
 A stronger, frozen, locally executable decoder should be benchmarked **without tuning on these sixteen cases**, with genuinely unseen objects, counterfactual physical relocation, balanced action order, and a real subject-owned query interface in the Doctor brain (rather than passing its question as a simulated user's instruction). A shared memory-source gate must separately record what actually entered the candidate frame and what was simply persisted in hidden memory. Only model-caused, host-verified outcomes under a new sealed task set can support behavioral improvement claims.
 
 The relevant exact-headed CI is \`.github/workflows/doctor-mediated-recall.yml\`. It pins both the production Doctor repository and free local model and saves \`mediated-recall-score.json\` plus source commits. No result is claimed here until that exact run completes.
+
+
+## Verified results and failure classification
+
+The exact-source [revised 32-token question-budget CI run 38204076151](https://github.com/Azimn/Pretorius-Laboratory/actions/runs/38204076151) passed all 5 recall-boundary tests and completed the 16-arm frozen research diagnosis. All action receipts were independently reopened and source-verified; the result is **negative**:
+
+| Route | Goal-correct accepted physical decisions | Successful cue requests | Retrieval frames surfacing source measurement |
+| --- | ---: | ---: | ---: |
+| Existing 135M local renderer with no new recall step | **2/8** | N/A | N/A |
+| Same renderer allowed to decide whether to seek memory first | **0/8** | **0/8** | **0/8** |
+
+The revised model-selected route **abstained in all eight trials** at the recall decision stage, without generating a memory question. The first short-question-budget CI run [38204010492](https://github.com/Azimn/Pretorius-Laboratory/actions/runs/38204010492) also scored 0/8 for recall and 2/8 for direct action: seven early abstentions and one decision to act without requesting memory. The change to the fixed 32-token question-generation budget was therefore *not* sufficient: the blocking action was refusal/invalid choice at the earlier model-mediated recall gate.
+
+These scores are not a proof that the production Doctor brain cannot retrieve, reason or act in general. The prior protected multi-cue Doctor audit independently verified **successful targeted retrieval when a suitable external question was supplied**. The current small local renderer cannot yet reliably *choose* that question under the tested interface. The current Doctor public port also labels model-authored self-questions as if they were user-originated prompts; this is a genuine subject-ownership gap independent of model quality.
+
+**Next engineering repair (separate unscored PR):** establish a strict research-only, read-only *subject-owned query capability* that retrieves Doctor's existing memories into an already protected first-person SubjectFrame without inventing an external user's message or exposing database facts. Test it with an explicitly controlled query, including absence in the withheld control, no implicit brain-state mutations, and no raw engineering state. Do **not** credit a researcher-forced query as autonomous recall or rerun this same known eight-task battery and claim new blinded evidence.
