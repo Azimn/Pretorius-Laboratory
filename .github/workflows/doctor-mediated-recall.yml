@@ -1,0 +1,58 @@
+name: Pretorius model-selected mediated recall research
+on:
+  pull_request:
+    paths:
+      - "pretorius_lab/doctor_recall_policy_research.py"
+      - "tests/test_doctor_recall_policy_research.py"
+      - "tools/run_doctor_mediated_recall_pilot.py"
+      - ".github/workflows/doctor-mediated-recall.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  freeze-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: laboratory
+      - uses: actions/checkout@v4
+        with:
+          repository: Azimn/The-Doctor-Lives
+          ref: 56aab5493ef48cdb560881a138b2277ca6ebcce0
+          persist-credentials: false
+          path: doctor-cognition
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check exact production brain revision
+        run: |
+          test "$(git -C doctor-cognition rev-parse HEAD)" = "56aab5493ef48cdb560881a138b2277ca6ebcce0"
+          git -C laboratory rev-parse HEAD > research-lab-head.txt
+          git -C doctor-cognition rev-parse HEAD > pinned-doctor-head.txt
+      - name: Install free frozen CPU-only inference
+        run: |
+          python -m pip install -e ./doctor-cognition -e ./laboratory
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch==2.5.1+cpu"
+          python -m pip install "transformers==4.46.3" "huggingface-hub==0.26.5" "tokenizers==0.20.3"
+      - name: Exercise protected recall boundary and refused invalid questions
+        working-directory: laboratory
+        run: |
+          python -m unittest discover -s tests -p "test_doctor_recall_policy_research.py" -v
+      - name: Run 16-arm mediated recollection diagnostic with real model
+        working-directory: laboratory
+        run: |
+          python tools/run_doctor_mediated_recall_pilot.py --output "$RUNNER_TEMP/doctor-mediated-recall"
+          cp "$RUNNER_TEMP/doctor-mediated-recall/score.json" ../mediated-recall-score.json
+          cat ../mediated-recall-score.json
+      - name: Retain original outcomes including all failures and abstentions
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctor-mediated-first-person-recall-diagnostic
+          path: |
+            mediated-recall-score.json
+            research-lab-head.txt
+            pinned-doctor-head.txt
+          if-no-files-found: error
+          retention-days: 60
