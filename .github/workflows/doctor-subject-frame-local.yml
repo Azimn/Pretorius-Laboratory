@@ -6,6 +6,7 @@ on:
       - "pretorius_lab/doctor_holdout_protocol.py"
       - "tests/test_doctor_subject_frame_proposer.py"
       - "tools/run_doctor_subject_frame_pilot.py"
+      - "tools/diagnose_doctor_model_position.py"
       - ".github/workflows/doctor-subject-frame-local.yml"
   workflow_dispatch:
 permissions:
@@ -49,12 +50,18 @@ jobs:
           python tools/run_doctor_subject_frame_pilot.py --output "$RUNNER_TEMP/protected-lab-actions"
           cp "$RUNNER_TEMP/protected-lab-actions/score.json" ../subject-frame-score.json
           cat ../subject-frame-score.json
+      - name: Diagnose letter-position bias without physical action or score credit
+        working-directory: laboratory
+        run: |
+          python tools/diagnose_doctor_model_position.py --output "$RUNNER_TEMP/protected-lab-actions"
+          cp "$RUNNER_TEMP/protected-lab-actions/option-order-diagnostic.json" ../model-position-diagnostic.json
       - name: Preserve exact-source graded actions and nulls
         uses: actions/upload-artifact@v4
         with:
           name: pretorius-protected-subject-frame-local-decoder
           path: |
             subject-frame-score.json
+            model-position-diagnostic.json
             source-lab-sha.txt
             source-doctor-sha.txt
           if-no-files-found: error
