@@ -20,6 +20,8 @@ def main(argv=None):
     sub.add_parser("verify-custody")
     sub.add_parser("init-instruments")
     sub.add_parser("verify-instruments")
+    sub.add_parser("init-liquids")
+    sub.add_parser("verify-liquids")
     measurement = sub.add_parser("measure")
     measurement.add_argument("instrument", choices=("ruler:bench", "balance:bench"))
     measurement.add_argument("object_id")
@@ -66,6 +68,12 @@ def main(argv=None):
         elif args.command == "verify-instruments":
             from .bench_instruments import BenchInstruments
             result = BenchInstruments(actor.habitat).verify()
+        elif args.command == "init-liquids":
+            from .bench_liquids import BenchLiquids
+            result = BenchLiquids(actor.habitat).initialize()
+        elif args.command == "verify-liquids":
+            from .bench_liquids import BenchLiquids
+            result = BenchLiquids(actor.habitat).verify()
         elif args.command == "measure":
             result = actor.measure(args.instrument, args.object_id, args.quantity)
         elif args.command == "take":
