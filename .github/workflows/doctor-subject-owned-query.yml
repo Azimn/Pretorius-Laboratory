@@ -1,0 +1,46 @@
+name: Doctor protected subject-owned query research
+on:
+  pull_request:
+    paths:
+      - "pretorius_lab/doctor_subject_query_research.py"
+      - "tests/test_doctor_subject_query_research.py"
+      - ".github/workflows/doctor-subject-owned-query.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-real-doctor-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: laboratory
+      - uses: actions/checkout@v4
+        with:
+          repository: Azimn/The-Doctor-Lives
+          ref: 56aab5493ef48cdb560881a138b2277ca6ebcce0
+          persist-credentials: false
+          path: doctor-cognition
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify exact Doctor cognition
+        run: |
+          test "$(git -C doctor-cognition rev-parse HEAD)" = "56aab5493ef48cdb560881a138b2277ca6ebcce0"
+          git -C laboratory rev-parse HEAD > research-lab-head.txt
+          git -C doctor-cognition rev-parse HEAD > production-doctor-head.txt
+      - name: Install only existing repository packages
+        run: python -m pip install -e ./doctor-cognition -e ./laboratory
+      - name: Exercise actual Doctor subject-owned protected frame
+        working-directory: laboratory
+        run: |
+          python -m unittest discover -s tests -p "test_doctor_subject_query_research.py" -v
+      - uses: actions/upload-artifact@v4
+        with:
+          name: real-doctor-readonly-first-person-query-gate
+          path: |
+            research-lab-head.txt
+            production-doctor-head.txt
+          if-no-files-found: error
+          retention-days: 60
