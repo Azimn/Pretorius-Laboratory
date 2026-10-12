@@ -304,6 +304,14 @@ class SpatialHabitat:
                     if any(obj["anchor_id"] == action["anchor_id"]
                            for obj in live.values()):
                         raise Conflict("Destination physically occupied")
+            if action["op"] == "break" and action["object_id"] == "beaker:001":
+                if custody_exists(db):
+                    held = effective_objects(db)["beaker:001"].get("held_by")
+                    if held is not None:
+                        raise LabError("Cannot break a beaker held by a subject")
+                from .bench_liquids import exists as liquid_exists, _meta as liquid_meta
+                if liquid_exists(db) and liquid_meta(db)["state"]["beaker_ml"] > 0:
+                    raise LabError("Decant the beaker before breaking glass; spills not simulated")
             before = m["state"]
             after = apply_spatial(before, action, m["revision"] + 1)
             if has_annex:
@@ -408,6 +416,11 @@ class SpatialHabitat:
             has_instruments = instruments_exist(db)
         if has_instruments:
             BenchInstruments(self).verify()
+        from .bench_liquids import BenchLiquids, exists as liquids_exist
+        with self._open() as db:
+            has_liquids = liquids_exist(db)
+        if has_liquids:
+            BenchLiquids(self).verify()
         from .physical_affordances import PhysicalAffordances, exists as affordances_exist
         with self._open() as db:
             has_affordances = affordances_exist(db)
@@ -474,6 +487,8 @@ class SpatialHabitat:
             PhysicalAffordances(SpatialHabitat(dest)).verify()
         if has_instruments:
             BenchInstruments(SpatialHabitat(dest)).verify()
+        if has_liquids:
+            BenchLiquids(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
@@ -484,6 +499,11 @@ class SpatialHabitat:
             has_instruments = instruments_exist(db)
         if has_instruments:
             BenchInstruments(self).verify()
+        from .bench_liquids import BenchLiquids, exists as liquids_exist
+        with self._open() as db:
+            has_liquids = liquids_exist(db)
+        if has_liquids:
+            BenchLiquids(self).verify()
         from .physical_affordances import PhysicalAffordances, exists as affordances_exist
         with self._open() as db:
             has_affordances = affordances_exist(db)
@@ -545,6 +565,8 @@ class SpatialHabitat:
             PhysicalAffordances(self)._fork_into(clone)
         if has_books:
             BookLibrary(self)._fork_into(clone)
+        if has_liquids:
+            BenchLiquids(self)._fork_into(clone)
         if has_instruments:
             # The new world has its own instruments and zero new measurements.
             # Copy only a parent event pointer; no "experienced" readings.

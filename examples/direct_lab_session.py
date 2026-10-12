@@ -17,6 +17,7 @@ from pretorius_lab.book_custody import BookCustody
 from pretorius_lab.book_library import BookLibrary
 from pretorius_lab.physical_affordances import PhysicalAffordances
 from pretorius_lab.bench_instruments import BenchInstruments
+from pretorius_lab.bench_liquids import BenchLiquids
 
 PAGES = (
     "The laboratory record states the vessel was intact at first inspection.",
@@ -57,13 +58,15 @@ def run(root):
     physical.initialize()
     instruments = BenchInstruments(lab)
     instruments.initialize()
+    liquids = BenchLiquids(lab)
+    liquids.initialize()
     record("Initialize scene and source text", "verified",
            "engineer-setup", {"source": "synthetic_fixture"})
 
     def revisions():
         return (lab.verify()["revision"], actor.verify()["revision"],
                 custody.verify()["revision"], books.verify()["revision"],
-                instruments.verify()["revision"])
+                instruments.verify()["revision"], liquids.verify()["revision"])
 
     def reject(action, callback):
         before = revisions()
@@ -103,6 +106,27 @@ def run(root):
            evidence=b1["observation"])
     reject("Weigh distant book", lambda:
            actor.measure("balance:bench", "book:007", "mass_g"))
+    actor.liquid("fill", 100)
+    wet = actor.measure("balance:bench", "beaker:001", "mass_g")
+    check(wet["observation"]["value"] == 425,
+          "Conserved 100 ml of water did not add 100 g to the balance")
+    check(actor.look()["offered_payload"]["beaker_water_level"] == "about half full",
+          "Wet beaker not visible qualitatively at the workbench")
+    record("Fill beaker with 100 ml of finite water and reweigh",
+           "425 g measured rather than the prior 325 g")
+    reject("Overfill 100 ml water in 250 ml vessel with 250 ml more",
+           lambda: actor.liquid("fill", 250))
+    reject("Pour 200 ml of water from only 100 ml held",
+           lambda: actor.liquid("pour", 200))
+    actor.liquid("pour", 50)
+    partially_filled = actor.measure("balance:bench", "beaker:001", "mass_g")
+    check(partially_filled["observation"]["value"] == 375,
+          "50 ml retained water did not produce the expected bounded mass")
+    check(liquids.audit_engineer_only() ==
+          {"reservoir_ml": 900, "beaker_ml": 50, "basin_ml": 50},
+          "Water disappeared during first material transfer")
+    record("Decant 50 ml to a stationary collecting basin",
+           "375 g remains on scale; 1000 ml is conserved")
 
     # Unlike the original experiment, no engineer moves the beaker.
     # The research subject frees the only bench position with its own hands.
@@ -159,7 +183,7 @@ def run(root):
     width = actor.measure("ruler:bench", "book:007", "width_mm")
     check(mass["observation"]["unit"] == "g" and
           width["observation"]["unit"] == "mm" and
-          instruments.verify()["revision"] == 3, "Wrong instrument ledger")
+          instruments.verify()["revision"] == 5, "Wrong instrument ledger")
     record("Measure the book", "bounded source-labelled mass and width",
            evidence={"mass": mass["observation"], "width": width["observation"]})
     reject("Measure beaker after removal",
@@ -200,8 +224,11 @@ def run(root):
     backup = SpatialHabitat(backup_path)
     check(backup.locate("book:007")["location"]["fixture"] == "bench:main",
           "Backup lost the book")
-    check(BenchInstruments(backup).verify()["revision"] == 3,
+    check(BenchInstruments(backup).verify()["revision"] == 5,
           "Backup lost readings")
+    check(BenchLiquids(backup).audit_engineer_only() ==
+          {"reservoir_ml": 900, "beaker_ml": 50, "basin_ml": 50},
+          "Backup failed to preserve conserved water")
     check(BookLibrary(backup).catalog("book:007")["book:007"]["bookmarks"] ==
           {"silver-paper": 2}, "Backup lost the bookmark")
     record("Backup and independently reopen persisted world",
@@ -215,6 +242,10 @@ def run(root):
     check(child.verify()["station"] == "station:bench", "Fork pose lost")
     check(BenchInstruments(fork).verify()["revision"] == 0,
           "Parent sensory offers fabricated as new experiences in fork")
+    check(BenchLiquids(fork).verify()["revision"] == 0,
+          "Fork falsely counts parent material transfers as new acts")
+    check(BenchLiquids(fork).audit_engineer_only()["beaker_ml"] == 50,
+          "Fork failed to copy actual contained water")
     check(fork.verify()["world_epoch"] != lab.verify()["world_epoch"],
           "Fork inherited the parent's epoch")
     child.take("book:007")
@@ -270,13 +301,14 @@ def run(root):
         "custody": custody.verify()["verified"],
         "mechanics": physical.verify()["verified"],
         "instruments": instruments.verify()["verified"],
+        "liquids": liquids.verify()["verified"],
         "backup": backup.verify()["verified"],
         "fork": fork.verify()["verified"],
         "damage": damage.verify()["verified"],
     }
     check(all(checks.values()), "A verification gate failed")
     result = {
-        "schema": "pretorius-lab-model-free-direct-session/1",
+        "schema": "pretorius-lab-model-free-direct-session/2",
         "status": "PASS", "steps": trace, "checks": checks,
         "denied_actions": sum(x["outcome"].startswith("REJECTED") for x in trace),
         "method": "fully_scripted_subject_actions_no_engineer_physical_intervention",
@@ -284,10 +316,13 @@ def run(root):
         "parent_book_location": lab.locate("book:007")["location"]["fixture"],
         "fork_book_location": fork.locate("book:007")["location"]["fixture"],
         "original_measurements": instruments.verify()["revision"],
+        "conserved_inventory_ml": sum(liquids.audit_engineer_only().values()),
+        "water_remaining_in_beaker_ml": liquids.audit_engineer_only()["beaker_ml"],
         "fork_new_measurements": BenchInstruments(fork).verify()["revision"],
         "limitations": [
             "No language model or Pretorius brain selected the actions",
-            "Fixture pages and physical assumptions are synthetic, not period originals",
+            "Fixture pages, water density and physical assumptions are synthetic",
+            "Fixed tap and collecting basin have finite discrete capacity, not simulated plumbing",
             "The actor moved the beaker directly, using the existing custody ledger",
             "Discrete simulated stations and noncontinuous physics only",
         ],

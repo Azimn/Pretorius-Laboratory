@@ -74,13 +74,15 @@ def _at_custody_revision(db, n):
     return state
 
 
-def _readout(profile, device, object_id, quantity):
+def _readout(profile, device, object_id, quantity, *, water_ml=0):
     if device not in DEVICES or quantity not in DEVICES[device]["quantities"]:
         raise LabError("Unsupported physical measurement")
     if object_id not in profile["object_profiles"]:
         raise LabError("Unprofiled physical object")
     conf = DEVICES[device]
     raw = profile["object_profiles"][object_id][quantity]
+    if object_id == "beaker:001" and quantity == "mass_g":
+        raw += water_ml  # declared synthetic 1 g/mL density
     increment = conf["resolution"]
     value = ((2 * raw + increment) // (2 * increment)) * increment
     error = conf["uncertainty"]
@@ -103,7 +105,13 @@ class BenchInstruments:
         self.habitat.verify()
         EmbodiedAccess(self.habitat).verify()
         BookCustody(self.habitat).verify()
-        return PhysicalAffordances(self.habitat).verify()
+        mechanics = PhysicalAffordances(self.habitat).verify()
+        from .bench_liquids import BenchLiquids, exists as liquid_exists
+        with self.habitat._open() as db:
+            has_liquids = liquid_exists(db)
+        if has_liquids:
+            BenchLiquids(self.habitat).verify()
+        return mechanics
 
     def initialize(self):
         profile = self._prerequisites()
@@ -192,7 +200,16 @@ class BenchInstruments:
                                      else original[oid]["anchor_id"])
                 if physical_location != BENCH:
                     raise Conflict("Measurement wasn't taken on the bench")
-                if e.get("observation") != _readout(p, e["instrument"], oid, e["quantity"]):
+                water_ml = 0
+                if "liquid_revision" in e:
+                    from .bench_liquids import exists as liquid_exists, volume_at
+                    if (not liquid_exists(db) or
+                        e.get("liquid_cursor") != _cursor(
+                            db, "liquid_events", e["liquid_revision"])):
+                        raise Conflict("Instrument reading references invalid liquid history")
+                    water_ml = volume_at(db, e["liquid_revision"])["beaker_ml"]
+                if e.get("observation") != _readout(
+                        p, e["instrument"], oid, e["quantity"], water_ml=water_ml):
                     raise Conflict("Measurement was altered or manufactured")
                 if e["observation_digest"] != digest(e["observation"]):
                     raise Conflict("Measurement digest invalid")
@@ -242,7 +259,16 @@ class BenchInstruments:
             profile = profile_at(db, host)
             if profile is None or digest(profile) != m["profile_digest"]:
                 raise Conflict("Instrument source profile is unavailable")
-            observation = _readout(profile, device, object_id, quantity)
+            from .bench_liquids import exists as liquid_exists, _meta as liquid_meta
+            liquid_evidence = {}
+            water_ml = 0
+            if liquid_exists(db):
+                liquid = liquid_meta(db)
+                liquid_evidence = {"liquid_revision": liquid["revision"],
+                                   "liquid_cursor": liquid["head_hash"]}
+                water_ml = liquid["state"]["beaker_ml"]
+            observation = _readout(
+                profile, device, object_id, quantity, water_ml=water_ml)
             from .shelf_annex import ShelfAnnex
             if ShelfAnnex.exists(db):
                 annex = {k: json.loads(v) for k, v in db.execute(
@@ -262,6 +288,7 @@ class BenchInstruments:
                 "annex_revision": annex["revision"], "annex_cursor": annex["head_hash"],
                 "profile_digest": m["profile_digest"],
                 "calibration_digest": m["calibration_digest"],
+                **liquid_evidence,
                 "previous_hash": m["head_hash"], "recorded_utc": _utc(),
                 "claim": "instrument_readout_offered_not_lived_memory",
             }

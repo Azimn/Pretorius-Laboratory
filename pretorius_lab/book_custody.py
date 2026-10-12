@@ -223,6 +223,23 @@ class BookCustody:
                 if (event["lab_id"], event["world_epoch"]) != (
                         meta["lab_id"], meta["world_epoch"]):
                     raise Conflict("Custody event foreign epoch")
+                if "liquid_revision" in event:
+                    from .bench_liquids import exists as liquid_exists, volume_at
+                    if not liquid_exists(db):
+                        raise Conflict("Handling cites absent liquid ledger")
+                    lr = event["liquid_revision"]
+                    row = (db.execute(
+                        "SELECT event_hash FROM liquid_events WHERE revision=?", (lr,)
+                    ).fetchone() if lr else None)
+                    if event.get("liquid_cursor") != (
+                            row[0] if row else GENESIS_HASH):
+                        raise Conflict("Historical handling cites invalid liquid receipt")
+                    water_ml = volume_at(db, lr)["beaker_ml"]
+                    if (event["action"]["op"] == "take_apparatus" and
+                        active_profile is not None and
+                        active_profile["object_profiles"]["beaker:001"]["mass_g"] +
+                        water_ml > active_profile["actor_limits"]["max_carry_mass_g"]):
+                        raise Conflict("Historical beaker exceeded carry capacity")
                 if event["before_digest"] != digest(items):
                     raise Conflict("Custody prior state mismatch")
                 if event.get("mechanical_profile_digest") is not None:
@@ -304,6 +321,10 @@ class BookCustody:
             host, raw, ar, ah = _raw(db)
             from .physical_affordances import (
                 profile_at, check_surface, check_actor_reach)
+            from .bench_liquids import exists as liquid_exists, _meta as liquid_meta
+            liquid = liquid_meta(db) if liquid_exists(db) else None
+            water_mass = (liquid["state"]["beaker_ml"]
+                          if liquid is not None and book_id == "beaker:001" else 0)
             active_profile = profile_at(db, host)
             prior = db.execute(
                 "SELECT envelope,event_hash FROM custody_events WHERE event_id=?",
@@ -367,7 +388,8 @@ class BookCustody:
                     raise LabError("Invalid or unchanged placement target")
                 if any(o["anchor_id"] == destination for o in effective.values()):
                     raise Conflict("A physical object already occupies that location")
-                check_surface(active_profile, book_id, destination, host)
+                check_surface(active_profile, book_id, destination, host,
+                              extra_mass_g=water_mass)
                 action = {"op": "operator_place", "object_id": book_id,
                           "from_anchor": before, "anchor_id": destination}
             elif operation in {"take", "take_apparatus"}:
@@ -377,7 +399,8 @@ class BookCustody:
                     raise LabError("Book is already carried")
                 if _station_for_anchor(host["state"]["anchors"], before) != body["station"]:
                     raise LabError("Approach the book before picking it up")
-                check_actor_reach(active_profile, book_id, before, host, lifting=True)
+                check_actor_reach(active_profile, book_id, before, host, lifting=True,
+                                  extra_mass_g=water_mass)
                 action = ({"op": "take", "book_id": book_id, "from_anchor": before}
                           if operation == "take" else
                           {"op": "take_apparatus", "object_id": book_id,
@@ -393,7 +416,8 @@ class BookCustody:
                 if any(x["anchor_id"] == destination for x in effective.values()):
                     raise Conflict("Destination occupied")
                 check_actor_reach(active_profile, book_id, destination, host, lifting=False)
-                check_surface(active_profile, book_id, destination, host)
+                check_surface(active_profile, book_id, destination, host,
+                              extra_mass_g=water_mass)
                 if operation == "put_apparatus" and (
                         host["state"]["anchors"][destination]["kind"] == "shelf_slot"):
                     raise LabError("Apparatus must be placed on a bench or floor")
@@ -412,6 +436,9 @@ class BookCustody:
                 "before_digest": digest(meta["items"]), "after_digest": digest(updated),
                 **({"mechanical_profile_digest": digest(active_profile)}
                    if active_profile is not None else {}),
+                **({"liquid_revision": liquid["revision"],
+                    "liquid_cursor": liquid["head_hash"]}
+                   if liquid is not None and book_id == "beaker:001" else {}),
                 "previous_hash": meta["head_hash"], "recorded_utc": _utc(),
                 "claim": "trusted_local_object_transfer_not_proof_of_subject_agency",
             }

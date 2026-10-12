@@ -129,7 +129,7 @@ def profile_at(db, host):
     return config
 
 
-def check_surface(profile, object_id, anchor_id, host):
+def check_surface(profile, object_id, anchor_id, host, *, extra_mass_g=0):
     if profile is None:
         return
     obj = profile["object_profiles"].get(object_id)
@@ -144,11 +144,11 @@ def check_surface(profile, object_id, anchor_id, host):
     for side in ("width_mm", "height_mm", "depth_mm"):
         if obj[side] > aperture[side]:
             raise LabError("Object exceeds surface clearance: " + side)
-    if obj["mass_g"] > aperture["max_mass_g"]:
+    if obj["mass_g"] + extra_mass_g > aperture["max_mass_g"]:
         raise LabError("Object exceeds supported surface mass")
 
 
-def check_actor_reach(profile, object_id, anchor_id, host, *, lifting):
+def check_actor_reach(profile, object_id, anchor_id, host, *, lifting, extra_mass_g=0):
     if profile is None:
         return
     if object_id not in profile["object_profiles"]:
@@ -158,18 +158,18 @@ def check_actor_reach(profile, object_id, anchor_id, host, *, lifting):
         raise LabError("Unknown physical station anchor")
     if anchor["xyz_mm"][2] > profile["actor_limits"]["max_reach_height_mm"]:
         raise LabError("Physical location exceeds actor's declared reach")
-    if lifting and profile["object_profiles"][object_id]["mass_g"] > (
+    if lifting and profile["object_profiles"][object_id]["mass_g"] + extra_mass_g > (
             profile["actor_limits"]["max_carry_mass_g"]):
         raise LabError("Book mass exceeds declared carrying capacity")
 
 
-def check_carried(profile, object_id):
+def check_carried(profile, object_id, *, extra_mass_g=0):
     if profile is None:
         return
     p = profile["object_profiles"].get(object_id)
     if p is None:
         raise LabError("Book has no mechanical profile")
-    if p["mass_g"] > profile["actor_limits"]["max_carry_mass_g"]:
+    if p["mass_g"] + extra_mass_g > profile["actor_limits"]["max_carry_mass_g"]:
         raise LabError("Book exceeds carrying capacity")
 
 
@@ -222,11 +222,15 @@ class PhysicalAffordances:
             profile = profile_at(db, host)
             from .book_custody import effective_objects
             objects = effective_objects(db)
+            from .bench_liquids import exists as liquid_exists, _meta as liquid_meta
+            extra = liquid_meta(db)["state"]["beaker_ml"] if liquid_exists(db) else 0
             for oid, obj in objects.items():
+                mass = extra if oid == "beaker:001" else 0
                 if obj["anchor_id"] is None:
-                    check_carried(profile, oid)
+                    check_carried(profile, oid, extra_mass_g=mass)
                 else:
-                    check_surface(profile, oid, obj["anchor_id"], host)
+                    check_surface(profile, oid, obj["anchor_id"], host,
+                                  extra_mass_g=mass)
             return {"verified": True, "world_epoch": proof["world_epoch"],
                     "profile_digest": digest(profile), "object_count": len(objects),
                     "source_class": SOURCE_CLASS}

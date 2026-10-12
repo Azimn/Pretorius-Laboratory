@@ -20,6 +20,8 @@ def main(argv=None):
     sub.add_parser("verify-custody")
     sub.add_parser("init-instruments")
     sub.add_parser("verify-instruments")
+    sub.add_parser("init-liquids")
+    sub.add_parser("verify-liquids")
     measurement = sub.add_parser("measure")
     measurement.add_argument("instrument", choices=("ruler:bench", "balance:bench"))
     measurement.add_argument("object_id")
@@ -29,6 +31,9 @@ def main(argv=None):
     put = sub.add_parser("put")
     put.add_argument("book_id")
     put.add_argument("destination")
+    liq = sub.add_parser("liquid")
+    liq.add_argument("operation", choices=("fill", "pour"))
+    liq.add_argument("amount_ml", type=int)
     ap_take = sub.add_parser("take-apparatus")
     ap_take.add_argument("object_id")
     ap_put = sub.add_parser("put-apparatus")
@@ -63,12 +68,20 @@ def main(argv=None):
         elif args.command == "verify-instruments":
             from .bench_instruments import BenchInstruments
             result = BenchInstruments(actor.habitat).verify()
+        elif args.command == "init-liquids":
+            from .bench_liquids import BenchLiquids
+            result = BenchLiquids(actor.habitat).initialize()
+        elif args.command == "verify-liquids":
+            from .bench_liquids import BenchLiquids
+            result = BenchLiquids(actor.habitat).verify()
         elif args.command == "measure":
             result = actor.measure(args.instrument, args.object_id, args.quantity)
         elif args.command == "take":
             result = actor.take(args.book_id)
         elif args.command == "put":
             result = actor.put(args.book_id, args.destination)
+        elif args.command == "liquid":
+            result = actor.liquid(args.operation, args.amount_ml)
         elif args.command == "take-apparatus":
             result = actor.take_apparatus(args.object_id)
         elif args.command == "put-apparatus":
