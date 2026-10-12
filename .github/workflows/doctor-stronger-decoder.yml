@@ -4,6 +4,9 @@ on:
     paths:
       - "pretorius_lab/doctor_stronger_local_decoder.py"
       - "pretorius_lab/doctor_recall_policy_research.py"
+      - "pretorius_lab/doctor_subject_query_research.py"
+      - "tests/test_doctor_subject_query_research.py"
+      - "docs/DOCTOR_SUBJECT_OWNED_QUERY_GATE6_2026-10-12.md"
       - "tests/test_doctor_stronger_decoder.py"
       - "tools/run_doctor_mediated_recall_pilot.py"
       - ".github/workflows/doctor-stronger-decoder.yml"
@@ -41,9 +44,10 @@ jobs:
         working-directory: laboratory
         run: |
           python -m unittest discover -s tests -p "test_doctor_stronger_decoder.py" -v
+          python -m unittest discover -s tests -p "test_doctor_subject_query_research.py" -v
           python -m unittest discover -s tests -p "test_doctor_recall_policy_research.py" -v
           python -m unittest discover -s tests -p "test_doctor_subject_frame_proposer.py" -v
-      - name: Execute pinned Qwen 1.5B CPU decoder across 16 matched trials
+      - name: Execute pinned Qwen 1.5B CPU decoder across 32 labeled research trials
         working-directory: laboratory
         run: |
           python tools/run_doctor_mediated_recall_pilot.py --model qwen25_1p5b --output "$RUNNER_TEMP/stronger-decoder-recall"
