@@ -109,7 +109,14 @@ class PinnedSmolLM2:
             self.model_id, revision=self.revision, trust_remote_code=False,
             torch_dtype=torch.float32).eval().to("cpu")
 
+    def complete_question(self, prompt: str) -> str:
+        """Allow a complete first-person question, not an eight-token fragment."""
+        return self._infer(prompt, max_new_tokens=32)
+
     def complete(self, prompt: str) -> str:
+        return self._infer(prompt, max_new_tokens=8)
+
+    def _infer(self, prompt: str, *, max_new_tokens: int) -> str:
         messages = [{"role": "system",
                      "content": "You choose one permitted action. Respond with one option letter only."},
                     {"role": "user", "content": prompt}]
@@ -118,7 +125,7 @@ class PinnedSmolLM2:
             return_tensors="pt")
         with self.torch.no_grad():
             output = self.model.generate(
-                encoded, do_sample=False, max_new_tokens=8,
+                encoded, do_sample=False, max_new_tokens=max_new_tokens,
                 pad_token_id=self.tokenizer.eos_token_id,
                 eos_token_id=self.tokenizer.eos_token_id)
         return self.tokenizer.decode(
