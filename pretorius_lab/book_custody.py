@@ -1,7 +1,7 @@
-"""Physical custody overlay for existing canonical core/annex book identities.
+"""Physical custody overlay for books and the intact laboratory beaker.
 
-Does not rewrite spatial v2 event hashes or historical shelf manifests.
-Accepted custody events are the current location authority for handled books.
+Old book events replay identically. Versioned take_apparatus/put_apparatus actions
+add bounded subject authority without changing underlying world history.
 """
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def _raw(db):
 
 
 def effective_objects(db):
-    """Return copies of true world objects with carried/placed book location overrides."""
+    """Return effective single-location authority for carried/placed objects."""
     host, objects, _, _ = _raw(db)
     held = {}
     if exists(db):
@@ -54,8 +54,11 @@ def effective_objects(db):
     for oid, state in held.items():
         if oid not in objects:
             raise Conflict("Custody references no stable physical object identity")
-        if state["held_by"] is not None and objects[oid]["kind"] != "book":
-            raise Conflict("Only supported book objects may be carried")
+        if state["held_by"] is not None and not (
+                objects[oid]["kind"] == "book" or
+                (oid == "beaker:001" and objects[oid]["kind"] == "glass_beaker"
+                 and objects[oid]["condition"] == "intact")):
+            raise Conflict("Only books and intact beaker may be carried")
         obj = objects[oid]
         obj["anchor_id"] = state["anchor_id"]
         obj["held_by"] = state["held_by"]
@@ -93,6 +96,8 @@ def _apply(items, action, *, sandbox):
     expected = {
         "take": {"op", "book_id", "from_anchor"},
         "put": {"op", "book_id", "anchor_id"},
+        "take_apparatus": {"op", "object_id", "from_anchor"},
+        "put_apparatus": {"op", "object_id", "anchor_id"},
         # Operator-authorized relocation may target a previously reserved raw
         # anchor if that anchor is physically vacant in the effective world.
         "operator_place": {"op", "object_id", "from_anchor", "anchor_id"},
@@ -100,10 +105,13 @@ def _apply(items, action, *, sandbox):
     }
     if op not in expected or set(action) != expected[op]:
         raise Conflict("Unknown custody reducer operation")
-    book_id = action.get("object_id") if op == "operator_place" else action["book_id"]
+    book_id = (action["object_id"] if op in {
+        "operator_place", "take_apparatus", "put_apparatus"} else action["book_id"])
     if not isinstance(book_id, str) or not (
-            book_id.startswith("book:") or
-            (op in {"operator_place", "fork_seed"} and book_id == "beaker:001")):
+            (op in {"take", "put"} and book_id.startswith("book:")) or
+            (op in {"take_apparatus", "put_apparatus"} and book_id == "beaker:001") or
+            (op in {"operator_place", "fork_seed"} and
+             (book_id.startswith("book:") or book_id == "beaker:001"))):
         raise Conflict("Invalid known physical object ID")
     state = copy.deepcopy(items)
     if op == "fork_seed":
@@ -126,7 +134,7 @@ def _apply(items, action, *, sandbox):
         if old is not None and (old["anchor_id"] != source or old["held_by"] is not None):
             raise Conflict("Operator move is not based on current placement")
         state[book_id] = {"anchor_id": destination, "held_by": None}
-    elif op == "take":
+    elif op in {"take", "take_apparatus"}:
         aid = action["from_anchor"]
         if not isinstance(aid, str):
             raise Conflict("Missing pre-take anchor")
@@ -134,7 +142,7 @@ def _apply(items, action, *, sandbox):
         if old is not None and (old["anchor_id"] != aid or old["held_by"] is not None):
             raise LabError("Book is not at the claimed shelf/table")
         if any(obj["held_by"] == SUBJECT_ID for obj in state.values()):
-            raise LabError("Research actor can carry one book at a time")
+            raise LabError("Research actor can carry one object at a time")
         state[book_id] = {"anchor_id": None, "held_by": SUBJECT_ID}
     else:
         if book_id not in state or state[book_id] != {
@@ -145,7 +153,7 @@ def _apply(items, action, *, sandbox):
             raise LabError("Missing destination anchor")
         state[book_id] = {"anchor_id": aid, "held_by": None}
     if sum(rec["held_by"] == SUBJECT_ID for rec in state.values()) > 1:
-        raise Conflict("Actor has multiple books without capacity")
+        raise Conflict("Actor has multiple objects without capacity")
     return state
 
 
@@ -262,8 +270,11 @@ class BookCustody:
             for oid, rec in items.items():
                 if oid not in raw:
                     raise Conflict("Custody references unknown physical object")
-                if rec["held_by"] is not None and raw[oid]["kind"] != "book":
-                    raise Conflict("Only books may be carried")
+                if rec["held_by"] is not None and not (
+                        raw[oid]["kind"] == "book" or
+                        (oid == "beaker:001" and raw[oid]["kind"] == "glass_beaker"
+                         and raw[oid]["condition"] == "intact")):
+                    raise Conflict("Only books and intact beaker may be carried")
                 if rec["anchor_id"] is not None:
                     if rec["anchor_id"] not in host["state"]["anchors"]:
                         raise Conflict("Custody references unknown anchor")
@@ -278,7 +289,8 @@ class BookCustody:
 
     def act(self, operation, book_id, *, destination=None, event_id=None,
             expected_placement_revision=None):
-        if operation not in {"take", "put", "operator_place"}:
+        if operation not in {"take", "put", "take_apparatus",
+                             "put_apparatus", "operator_place"}:
             raise LabError("Unsupported handling action")
         self.verify()
         event_id = event_id or str(uuid.uuid4())
@@ -300,11 +312,11 @@ class BookCustody:
                 e = json.loads(prior[0])
                 oid = e["action"].get("object_id", e["action"].get("book_id"))
                 if (e["action"]["op"] != operation or oid != book_id or
-                        (operation in {"put", "operator_place"} and
+                        (operation in {"put", "put_apparatus", "operator_place"} and
                          e["action"]["anchor_id"] != destination)):
                     raise Conflict("Handling event id reused for a different operation")
                 historical_location = ({"anchor_id": None, "held_by": SUBJECT_ID}
-                    if operation == "take" else
+                    if operation in {"take", "take_apparatus"} else
                     {"anchor_id": e["action"]["anchor_id"], "held_by": None})
                 return {"event_id": event_id, "event_hash": prior[1],
                         "object_id": book_id, "location": historical_location}
@@ -332,9 +344,14 @@ class BookCustody:
                         if meta["revision"] else None)
             if (recorded[0] if recorded else GENESIS_HASH) != meta["head_hash"]:
                 raise Conflict("Physical custody event head invalid")
-            if book_id not in raw or (
-                    operation != "operator_place" and raw[book_id]["kind"] != "book"):
+            if book_id not in raw:
                 raise LabError("Unknown supported physical object")
+            if operation in {"take", "put"} and raw[book_id]["kind"] != "book":
+                raise LabError("Book handling requires an actual book")
+            if operation in {"take_apparatus", "put_apparatus"} and not (
+                    book_id == "beaker:001" and raw[book_id]["kind"] == "glass_beaker"
+                    and raw[book_id]["condition"] == "intact"):
+                raise LabError("Only the intact laboratory beaker is portable apparatus")
             effective = effective_objects(db)
             before = effective[book_id]["anchor_id"]
             if operation == "operator_place":
@@ -353,7 +370,7 @@ class BookCustody:
                 check_surface(active_profile, book_id, destination, host)
                 action = {"op": "operator_place", "object_id": book_id,
                           "from_anchor": before, "anchor_id": destination}
-            elif operation == "take":
+            elif operation in {"take", "take_apparatus"}:
                 if destination is not None:
                     raise LabError("Pickup has no destination")
                 if before is None:
@@ -361,7 +378,10 @@ class BookCustody:
                 if _station_for_anchor(host["state"]["anchors"], before) != body["station"]:
                     raise LabError("Approach the book before picking it up")
                 check_actor_reach(active_profile, book_id, before, host, lifting=True)
-                action = {"op": "take", "book_id": book_id, "from_anchor": before}
+                action = ({"op": "take", "book_id": book_id, "from_anchor": before}
+                          if operation == "take" else
+                          {"op": "take_apparatus", "object_id": book_id,
+                           "from_anchor": before})
             else:
                 if before is not None or effective[book_id].get("held_by") != SUBJECT_ID:
                     raise LabError("This book is not in the actor's hands")
@@ -374,7 +394,13 @@ class BookCustody:
                     raise Conflict("Destination occupied")
                 check_actor_reach(active_profile, book_id, destination, host, lifting=False)
                 check_surface(active_profile, book_id, destination, host)
-                action = {"op": "put", "book_id": book_id, "anchor_id": destination}
+                if operation == "put_apparatus" and (
+                        host["state"]["anchors"][destination]["kind"] == "shelf_slot"):
+                    raise LabError("Apparatus must be placed on a bench or floor")
+                action = ({"op": "put", "book_id": book_id, "anchor_id": destination}
+                          if operation == "put" else
+                          {"op": "put_apparatus", "object_id": book_id,
+                           "anchor_id": destination})
             updated = _apply(meta["items"], action, sandbox=meta["mode"] == "sandbox")
             event = {
                 "revision": meta["revision"] + 1, "event_id": event_id,
