@@ -142,6 +142,11 @@ class BenchLiquids:
                 envelope TEXT NOT NULL, prev_hash TEXT NOT NULL,
                 event_hash TEXT UNIQUE NOT NULL)""")
             m = _meta(db)
+            if _fork_origin is not None and (
+                    host["mode"] != "sandbox" or not isinstance(_parent, dict) or
+                    set(_parent) != {
+                        "parent_epoch", "parent_revision", "parent_cursor", "claim"}):
+                raise Conflict("Only a declared sandbox fork may inherit liquid state")
             if not m:
                 for k, v in {
                     "lab_id": host["lab_id"], "home_id": host["home_id"],
@@ -153,8 +158,8 @@ class BenchLiquids:
                     "parent_liquid_custody": _parent,
                 }.items():
                     _put(db, k, v)
-            elif (_fork_origin is not None or m["origin_state"] != initial):
-                raise Conflict("Liquid state cannot be reset during reinitialization")
+            elif _fork_origin is not None and m["origin_state"] != initial:
+                raise Conflict("Fork inventory cannot be changed on reinitialization")
         return self.verify()
 
     def verify(self):
