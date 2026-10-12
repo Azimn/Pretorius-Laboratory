@@ -31,3 +31,20 @@ The run must report separately:
 **Interpretation:** A higher score would support the narrower claim that a stronger *external decision renderer* uses the bounded context better on these tasks, **not** that the recurrent neural substrate learned, that Pretorius achieved autonomous identity continuity, or that subjective awareness exists. A model that still chooses the first choice or repeatedly abstains has not solved the issue. A production promotion requires additional genuinely novel blind goals/objects, matched memory ablations, model-independent action authorization and explicit temporal memory retention tests.
 
 No Frankenstein Village connection is changed.
+
+
+## First verified model-capacity comparison
+
+The unchanged 135M reference was re-executed at [CI 38205106560](https://github.com/Azimn/Pretorius-Laboratory/actions/runs/38205106560). The stronger 1.5B model completed its first **16-arm** experiment at [CI 38205106641](https://github.com/Azimn/Pretorius-Laboratory/actions/runs/38205106641), with resolved full Hugging Face model Git SHA `989aa7980e4cf806f80c7fef2b1adb7bc71aa306`.
+
+| Task variant | SmolLM2 135M | Qwen2.5 1.5B |
+|---|---:|---:|
+| No additional retrieval, objective-correct host acts | 2/8 | **4/8** |
+| Model first decides whether to recall, objective-correct host acts | 0/8 | **2/8** |
+| Successful elective extra recall requests | 0 | **0** |
+
+The stronger renderer improves the performance of the *initial* action-selection task, but it still never chose a valid retrieval request at the metacognitive gate. This is a partial improvement, not evidence of spontaneous memory-guided behavior. It does **not** isolate model size from training data, checkpoint, prompting or architecture, and it does not justify a treatment-effect claim from eight task contexts.
+
+### Explicitly separate allocated-question diagnostic
+
+A subsequent controlled condition `allocated_model_question` gives the external renderer exactly one opportunity to formulate a **model-written** first-person memory question before action selection. It bypasses the separately failed question-*initiation* meta-decision; the host cannot supply a known useful cue, alternate an invalid query, or select the correct act. This is not autonomous memory initiation and is **not part of the original baseline**. Report its own valid queries, actual frame retrieval evidence and independently verified physical-action score. Distinguish it from the old `model_selected_recall` arm.
