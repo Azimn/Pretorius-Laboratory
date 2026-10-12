@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - "examples/direct_lab_session.py"
+      - "docs/DIRECT_LAB_MODEL_FREE_ACCEPTANCE_2026-10-12.md"
       - ".github/workflows/direct-laboratory-session.yml"
   workflow_dispatch:
 permissions:
@@ -24,6 +25,15 @@ jobs:
           cp "$RUNNER_TEMP/direct-lab/direct-session-report.json" direct-session-report.json
       - name: Run existing laboratory regression tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Stage verified SQLite evidence without copying disposable tamper state
+        if: always()
+        run: |
+          mkdir -p direct-lab-worlds
+          for name in visit-backup.sqlite3 visit-fork.sqlite3 damage-world.sqlite3; do
+            if test -f "$RUNNER_TEMP/direct-lab/$name"; then
+              cp "$RUNNER_TEMP/direct-lab/$name" direct-lab-worlds/
+            fi
+          done
       - name: Save verified world and report
         if: always()
         uses: actions/upload-artifact@v4
@@ -31,5 +41,6 @@ jobs:
           name: direct-model-free-lab-world-and-report
           path: |
             direct-session-report.json
+            direct-lab-worlds/
           if-no-files-found: warn
           retention-days: 30
