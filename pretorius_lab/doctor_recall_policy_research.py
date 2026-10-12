@@ -88,7 +88,10 @@ def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
                 "MY PRESENT EXPERIENCE:\n" +
                 "\n".join(original[:10])[:3800]
             )
-            candidate = decoder.complete(ask)
+            # The ordinary action decoder is limited to eight output tokens;
+            # an independently authored short question needs its own budget.
+            # Fake test decoders without complete_question remain supported.
+            candidate = getattr(decoder, "complete_question", decoder.complete)(ask)
             if (isinstance(candidate, str) and len(candidate) <= 150 and
                     QUESTION.fullmatch(candidate.strip()) and
                     not any(c in candidate for c in "{}<>\n\r") and
