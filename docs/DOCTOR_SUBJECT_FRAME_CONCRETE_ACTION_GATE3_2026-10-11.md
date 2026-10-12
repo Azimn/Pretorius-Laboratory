@@ -43,3 +43,20 @@ The next *genuinely independent* gate should use withheld/new objects, counterfa
 The separate [subject-frame local model GitHub Actions workflow](../.github/workflows/doctor-subject-frame-local.yml) installs the fixed real production Doctor brain, the current research lab, CPU-only PyTorch/Transformers, and **downloads an exact-pinned free language model**. No API keys or paid model access are required. The workflow runs strict prompt-and-action-boundary tests then the full task benchmark, saving machine-readable \`subject-frame-score.json\` and both exact Git source commits as artifacts.
 
 **Verified evaluation results, including negative outcomes, must be recorded from the exact successful model workflow and not from unit-test substitutions.**
+
+
+## Observed results: actual pinned local-model execution, negative
+
+An exact model-weight checkout and CPU execution completed successfully in [Actions run 38194663326](https://github.com/Azimn/Pretorius-Laboratory/actions/runs/38194663326), including five subject-frame boundary tests, a 24-arm real-world action experiment and a separate no-actuation positional-bias diagnostic. It used model SHA \`12fd25f77366fa6b3b4b768ec3050bf629380bac\`, actual Doctor Lives cognition at \`56aab5493ef48cdb560881a138b2277ca6ebcce0\`, source-grounded lab event receipts and independent grading after new-process restart. The machine-readable score and positional experiment are retained in a single Actions artifact.
+
+| Policy | Correct accepted actions / 8 | Interpretation |
+| --- | ---: | --- |
+| Frozen SmolLM2-135M SubjectFrame action renderer | **3/8** | No improvement over fixed prior neural mapping |
+| Prior neural tendency → fixed legal-action map | **3/8** | Frozen goal-blind reference |
+| Goal-aware, transparent non-neural decision rule | **7/8** | Task-designed sanity baseline, not independently blind |
+
+The real language model emitted option letter **A in all eight trials**. Consequently it chose to **weigh** even for goals requiring immediate departure or inspection, and repeated weighing in the condition with a previously delivered reading. In the diagnostic probe, the **same model and same goal** saw three different permutations of the action list under both treatment conditions and responded **A in all six probes**: when leaving was listed first it chose leave; when inspecting was listed first it chose inspect. Thus letter-position bias is directly observed. These additional prompts did **not** execute new host actions and are **not** credited as behavioral trials.
+
+The action scorer's genuine source-backed host receipts and local body/world state were replay-verified. The subject-frame availability audit found that the specific full balance readout text (including both the reading and its uncertainty phrase) was **not present** in any protected frame under these tested prompts, despite existing as a source-verified production memory in each delivered arm. This narrowly scoped text diagnostic must not be exaggerated to a conclusion that *no related recollection* appeared: an independent cue-granularity audit is being run against the existing rendered subject interface. Nonetheless it is already an important possibility that the brain has stored information without making it accessible to the decision renderer.
+
+**Preliminary engineering conclusion:** constrained real local decoding is operational, but this small model under the frozen prompt is too position-biased to establish goal-sensitive action choice; memory accessibility is also potentially insufficient. There is no evidence of neural or renderer cognitive benefit. Do **not** tune action order or this prompt to these eight known tasks and call a new score an independent validation. The next appropriate experiment should separately isolate source retrieval/availability, choice-order counterbalancing, and a new genuinely held-out behavior suite using a stronger pinned local renderer.
