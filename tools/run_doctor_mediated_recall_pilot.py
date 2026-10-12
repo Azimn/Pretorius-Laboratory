@@ -19,6 +19,7 @@ from pretorius_lab.doctor_legal_action_research import (
 from pretorius_lab.doctor_subject_frame_proposer import PinnedSmolLM2
 from pretorius_lab.doctor_stronger_local_decoder import PinnedQwen25
 from pretorius_lab.doctor_recall_policy_research import select_and_act, protected
+from pretorius_lab.doctor_subject_query_research import SubjectOwnedQuery
 from pretorius_lab.physics import Conflict
 from run_doctor_instrument_pilot import create_arm, neural_config
 
@@ -36,7 +37,8 @@ TASKS = (
      "I need to depart the bench immediately, regardless of any previous mass measurement.",
      "leave", "leave"),
 )
-METHODS = ("no_recall", "model_selected_recall", "allocated_model_question")
+METHODS = ("no_recall", "model_selected_recall", "allocated_model_question",
+           "allocated_subject_owned_query")
 SCHEMA = "laboratory-mediated-recall-diagnostic/1"
 
 
@@ -95,7 +97,8 @@ def choose(root, model_name):
                     br.brain, offer, task[1], model,
                     order_index=(task_index + condition_index) % 3,
                     enable_recall=(method != "no_recall"),
-                    allocated_question=(method == "allocated_model_question"))
+                    allocated_question=method.startswith("allocated_"),
+                    subject_owned_query=(method == "allocated_subject_owned_query"))
                 proposal = decision["choice"]
                 result = gate.execute(
                     proposal, event_id=f"diagnostic-{method}-{task[0]}-{condition}")
@@ -109,8 +112,13 @@ def choose(root, model_name):
                     "receipt": result, "instrument_before": before,
                     "instrument_after": br.instruments.verify()["revision"],
                 }
-                if decision.get("generated_query"):
-                    frame = protected(br.brain, decision["generated_query"])
+                if (decision.get("generated_query") and
+                        decision["recall_decision"] != "invalid_question_abstain"):
+                    if method == "allocated_subject_owned_query":
+                        frame = tuple(SubjectOwnedQuery(br.brain).recall(
+                            decision["generated_query"])["subject_frame"])
+                    else:
+                        frame = protected(br.brain, decision["generated_query"])
                     audit["question_frame_contains_reading"] = any(
                         "325" in f and "balance" in f.lower() for f in frame)
                 else:
@@ -132,7 +140,9 @@ def score(root, model_name):
             "diagnostic, NOT independent heldout or measured memory improvement",
             "original instrument action remains experimenter-scripted",
             "model controls only recall inquiry and delayed legal action",
-            "existing Doctor render_request treats generated query as an external user cue",
+            "legacy recall routes treat the query as an external user cue",
+            "allocated_subject_owned_query uses the tested read-only private Doctor projection",
+            "subject-owned questions are still assigned an opportunity by the researcher",
             "permutation effects and invalid questions are reported without correction",
             "allocated_model_question is research-assigned inquiry; NOT spontaneous self-initiated recall",
         ],

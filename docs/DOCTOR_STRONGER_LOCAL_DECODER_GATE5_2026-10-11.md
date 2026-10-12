@@ -48,3 +48,8 @@ The stronger renderer improves the performance of the *initial* action-selection
 ### Explicitly separate allocated-question diagnostic
 
 A subsequent controlled condition `allocated_model_question` gives the external renderer exactly one opportunity to formulate a **model-written** first-person memory question before action selection. It bypasses the separately failed question-*initiation* meta-decision; the host cannot supply a known useful cue, alternate an invalid query, or select the correct act. This is not autonomous memory initiation and is **not part of the original baseline**. Report its own valid queries, actual frame retrieval evidence and independently verified physical-action score. Distinguish it from the old `model_selected_recall` arm.
+
+
+## Completed allocated-question result on the original external-User route
+
+The completed exact-head [Qwen CI run 38205504906](https://github.com/Azimn/Pretorius-Laboratory/actions/runs/38205504906) independently verified 24 accepted/rejected action attempts under the three pre-existing methods. The additional researcher-allocated inquiry arm scored **3/8** accepted objective-correct acts, versus **4/8** for no extra recall and **2/8** for model-selected recall. In the allocated arm the decoder attempted **6** questions, but **0** resulting queried frames exposed the validated balance readout. Thus externally cued allocation did not outperform the no-recall comparator, and model-generated questions alone did not demonstrate memory use. The original eight known goals remain exploratory, not new blind tasks. Research PR #18 adds a fourth, separately identified subject-owned retrieval condition; these three completed scores are frozen and must remain separately identifiable.

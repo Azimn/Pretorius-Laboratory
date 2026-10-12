@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 from .doctor_subject_frame_proposer import choose_from_subject_frame
+from .doctor_subject_query_research import SubjectOwnedQuery
 from .doctor_legal_action_research import ActionOffer, RULESET
 from .physics import Conflict, LabError
 
@@ -50,7 +51,8 @@ class _ProjectedOnlyPort:
 
 def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
                    order_index: int, enable_recall: bool,
-                   allocated_question: bool = False) -> dict:
+                   allocated_question: bool = False,
+                   subject_owned_query: bool = False) -> dict:
     if offer.ruleset != RULESET or type(order_index) is not int or not (
             0 <= order_index < len(ORDERINGS)):
         raise LabError("Invalid recall offer")
@@ -58,6 +60,8 @@ def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
         raise LabError("Invalid first-person goal")
     if allocated_question and not enable_recall:
         raise LabError("Allocated question requires the recall-enabled research arm")
+    if subject_owned_query and not allocated_question:
+        raise LabError("Subject-owned query requires the allocated research control")
     original = protected(port, goal)
     decision = "disabled"
     question = None
@@ -109,7 +113,15 @@ def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
                 question = candidate.strip()
                 # This existing port uses EXTERNALLY CUED query semantics.
                 # No host check for a correct answer selects a different cue.
-                queried = protected(port, question)
+                if subject_owned_query:
+                    # Never forge an external User input from a model-written thought.
+                    # The existing Doctor projection is used read-only in PR #16.
+                    try:
+                        queried = tuple(SubjectOwnedQuery(port).recall(question)["subject_frame"])
+                    except LabError:
+                        decision = "invalid_question_abstain"
+                else:
+                    queried = protected(port, question)
             else:
                 decision = "invalid_question_abstain"
     if decision in ("abstain", "invalid_question_abstain"):
@@ -128,4 +140,6 @@ def select_and_act(port, offer: ActionOffer, goal: str, decoder, *,
             "used_extra_frame": bool(queried),
             "model_raw_action": act["model_raw_output"],
             "model_output_invalid": act["invalid_output"],
-            "mediation": "externally_cued_Doctor_render_request_not_autonomous_self_query"}
+            "mediation": ("readonly_subject_owned_query_not_autonomous_self_query"
+                          if subject_owned_query else
+                          "externally_cued_Doctor_render_request_not_autonomous_self_query")}
