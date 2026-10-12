@@ -84,6 +84,25 @@ def choose(root):
                         tuple(frame), offer.choices)
                     proposal = {"policy": "transparent-task-aware-rule",
                                 "choice": choice}
+                # Researcher-side availability audit, never given to model
+                # or comparator. The actual action remains unchanged.
+                from hashlib import sha256
+                from pretorius_lab.doctor_subject_frame_proposer import MAX_FRAME_ITEMS
+                protected = bridge.brain.render_request(
+                    user_input=task["goal"])["subject_frame"]
+                def contains_offered_reading(items):
+                    return any("the balance before me reads" in item.lower()
+                               and "reading may be off by" in item.lower()
+                               for item in items)
+                availability = {
+                    "instrument_result_in_full_frame":
+                        contains_offered_reading(protected),
+                    "instrument_result_in_model_excerpt":
+                        contains_offered_reading(protected[:MAX_FRAME_ITEMS]),
+                    "frame_item_count": len(protected),
+                    "frame_sha256": sha256(
+                        "\n".join(protected).encode("utf-8")).hexdigest(),
+                }
                 before = bridge.instruments.verify()["revision"]
                 receipt = gate.execute(
                     proposal["choice"],
@@ -97,6 +116,7 @@ def choose(root):
                     json.dumps({"protocol": PROTOCOL, "controller": control,
                                 "task_id": task["id"], "condition": condition,
                                 "proposal": proposal, "receipt": receipt,
+                                "frame_availability": availability,
                                 "before": before, "after": after},
                                indent=2, sort_keys=True) + "\n",
                     encoding="utf-8")
@@ -159,7 +179,8 @@ def score(root):
                                      after=e["after"])
                 successes += int(scored["success"])
                 result["trials"][control][task["id"]][condition] = {
-                    **scored, "model_output": e["proposal"].get("model_raw_output"),
+                    **scored, "frame_availability": e["frame_availability"],
+                    "model_output": e["proposal"].get("model_raw_output"),
                     "invalid_model_output": e["proposal"].get("invalid_output"),
                 }
         result["summary"][control] = {
