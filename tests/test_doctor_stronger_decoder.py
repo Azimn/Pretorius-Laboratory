@@ -86,6 +86,19 @@ class StrongerDecoderTests(unittest.TestCase):
         self.assertTrue(any(channel == "question" for channel, _ in stub.prompts))
         self.assertEqual(len(self.brain.calls), 2)
 
+    def test_allocated_question_is_model_written_but_not_model_initiated(self):
+        stub = FiniteDecoder(["C"])
+        result = select_and_act(
+            self.brain, self.offer, self.goal, stub,
+            order_index=2, enable_recall=True, allocated_question=True)
+        self.assertEqual(result["choice"], "leave")
+        self.assertTrue(result["allocated_question"])
+        self.assertEqual(result["recall_decision"], "recall")
+        self.assertEqual(len(stub.prompts), 2)
+        self.assertEqual(stub.prompts[0][0], "question")
+        self.assertEqual(stub.prompts[1][0], "action")
+        self.assertEqual(len(self.brain.calls), 2)
+
     def test_invalid_choice_still_abstains_without_host_repair(self):
         stub = FiniteDecoder(["I choose C because the weight was given"])
         result = choose_from_subject_frame(
