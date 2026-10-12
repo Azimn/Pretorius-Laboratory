@@ -305,6 +305,10 @@ class SpatialHabitat:
                            for obj in live.values()):
                         raise Conflict("Destination physically occupied")
             if action["op"] == "break" and action["object_id"] == "beaker:001":
+                if custody_exists(db):
+                    held = effective_objects(db)["beaker:001"].get("held_by")
+                    if held is not None:
+                        raise LabError("Cannot break a beaker held by a subject")
                 from .bench_liquids import exists as liquid_exists, _meta as liquid_meta
                 if liquid_exists(db) and liquid_meta(db)["state"]["beaker_ml"] > 0:
                     raise LabError("Decant the beaker before breaking glass; spills not simulated")
