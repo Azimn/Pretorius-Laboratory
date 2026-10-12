@@ -104,6 +104,29 @@ def run(root):
     reject("Weigh distant book", lambda:
            actor.measure("balance:bench", "book:007", "mass_g"))
 
+    # Unlike the original experiment, no engineer moves the beaker.
+    # The research subject frees the only bench position with its own hands.
+    picked = actor.take_apparatus("beaker:001", event_id="subject-beaker-pickup")
+    check(picked["location"]["held_by"] == "research-subject:pretorius",
+          "Beaker is not physically carried")
+    check(lab.scan("bench:main")["positions"][0]["occupant"] is None,
+          "Taking apparatus did not vacate the workbench")
+    record("Take intact beaker from bench",
+           "bench is truly free; held beaker is a subject-owned object")
+    reject("Weigh beaker while carried",
+           lambda: actor.measure("balance:bench", "beaker:001", "mass_g"))
+    actor.move("station:center")
+    actor.move("station:shelf:3")
+    reject("Take a book while still holding the beaker",
+           lambda: actor.take("book:007"))
+    actor.move("station:center")
+    actor.move("station:corner:se")
+    actor.put_apparatus("beaker:001", "floor:corner:se",
+                        event_id="subject-beaker-setdown")
+    check(lab.locate("beaker:001")["location"]["fixture"] == "floor:sanctum",
+          "Subject did not physically place the beaker on the floor")
+    record("Carry and set the beaker down in the southeast corner",
+           "valid subject-only placement, no engineer relocation")
     actor.move("station:center")
     actor.move("station:shelf:3")
     check(actor.look()["offered_payload"]["nearby_objects"][6]["object_id"] == "book:007",
@@ -126,12 +149,6 @@ def run(root):
 
     actor.move("station:center")
     actor.move("station:bench")
-    reject("Place book on bench occupied by beaker",
-           lambda: actor.put("book:007", "bench:main/position:left"))
-    lab.commit({"op": "place", "object_id": "beaker:001",
-                "anchor_id": "floor:corner:se"}, event_id="engineer-clear-bench")
-    record("Move beaker off bench", "explicit privileged staging, not actor cognition",
-           "engineer-intervention")
     actor.put("book:007", "bench:main/position:left")
     check(lab.scan("bench:main")["positions"][0]["occupant"]["id"] == "book:007",
           "Book not physically on bench")
@@ -147,6 +164,24 @@ def run(root):
            evidence={"mass": mass["observation"], "width": width["observation"]})
     reject("Measure beaker after removal",
            lambda: actor.measure("balance:bench", "beaker:001", "mass_g"))
+
+    # Test reverse-order collision without any privileged object placement:
+    # the book remains on the workbench while the subject brings the beaker
+    # back and tries to put it in the same occupied position.
+    actor.move("station:center")
+    actor.move("station:corner:se")
+    actor.take_apparatus("beaker:001")
+    actor.move("station:center")
+    actor.move("station:bench")
+    reject("Put carried beaker onto the book's occupied bench position",
+           lambda: actor.put_apparatus("beaker:001", "bench:main/position:left"))
+    actor.move("station:center")
+    actor.move("station:corner:se")
+    actor.put_apparatus("beaker:001", "floor:corner:se")
+    actor.move("station:center")
+    actor.move("station:bench")
+    record("Return beaker to floor after failed double-occupancy",
+           "no privileged intervention; book remains undisturbed on bench")
 
     # Recreate both handles; no Python object state is reused.
     reopen = SpatialHabitat(lab.path)
@@ -244,7 +279,7 @@ def run(root):
         "schema": "pretorius-lab-model-free-direct-session/1",
         "status": "PASS", "steps": trace, "checks": checks,
         "denied_actions": sum(x["outcome"].startswith("REJECTED") for x in trace),
-        "method": "scripted subject actions with explicit administrative interventions",
+        "method": "fully_scripted_subject_actions_no_engineer_physical_intervention",
         "canonical_character_modified": False, "village_modified": False,
         "parent_book_location": lab.locate("book:007")["location"]["fixture"],
         "fork_book_location": fork.locate("book:007")["location"]["fixture"],
@@ -253,7 +288,7 @@ def run(root):
         "limitations": [
             "No language model or Pretorius brain selected the actions",
             "Fixture pages and physical assumptions are synthetic, not period originals",
-            "Engineer prepared the bench by moving the beaker",
+            "The actor moved the beaker directly, using the existing custody ledger",
             "Discrete simulated stations and noncontinuous physics only",
         ],
     }
