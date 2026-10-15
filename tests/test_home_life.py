@@ -131,8 +131,9 @@ class DomesticLifeTests(unittest.TestCase):
         self.assertEqual(events[1]["subject"]["spoken_aloud"], "Ow! My foot!")
         self.home.look()
         with self.lab._open() as db:
-            self.assertEqual(db.execute(
-                "SELECT COUNT(*) FROM domestic_events WHERE op='walk'").fetchone()[0], 2)
+            self.assertEqual(sum(
+                json.loads(row[0])["op"] == "walk"
+                for row in db.execute("SELECT envelope FROM domestic_events")), 2)
         self.assertTrue(self.home.verify()["verified"])
 
     def test_replay_event_identity_and_state_tampering_detection(self):
