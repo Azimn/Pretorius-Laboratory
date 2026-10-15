@@ -117,6 +117,42 @@ class DomesticLifeTests(unittest.TestCase):
                          ["curiosity:crystal"])
         self.assertNotIn("garment:coat", json.dumps(self.home.shop_manifest()))
 
+    def test_collision_has_mechanical_aftereffects_not_just_flavor_text(self):
+        self.walk_to("station:hall", "station:shop:private")
+        hit = self.home.audit_state()["body"]
+        self.assertEqual(hit["reflexes"], 1)
+        self.assertEqual(hit["foot_soreness"], 3)
+        self.assertGreaterEqual(hit["effort"], 4)
+        next_step = self.home.walk("station:hall")
+        self.assertIn("My foot is still tender", next_step["inner"])
+        after = HomeLife(SpatialHabitat(self.lab.path)).audit_state()["body"]
+        self.assertEqual(after["foot_soreness"], 2)
+        self.assertEqual(after["reflexes"], 1)
+        self.assertEqual(after["steps"], 3)
+        self.assertGreater(after["effort"], hit["effort"])
+
+    def test_fork_copies_home_stock_but_not_lived_events_or_memory(self):
+        self.walk_to("station:hall", "station:bedroom")
+        self.home.open("wardrobe:bedroom")
+        self.home.take("garment:coat")
+        original = self.home.verify()
+        fork_path = Path(self.temp.name) / "independent-experiment.sqlite3"
+        self.lab.fork_to(fork_path)
+        clone = HomeLife(SpatialHabitat(fork_path))
+        cloned = clone.verify()
+        self.assertEqual(cloned["revision"], 0)
+        self.assertNotEqual(cloned["world_epoch"], original["world_epoch"])
+        self.assertEqual(clone.audit_state()["items"]["garment:coat"]["held_by"],
+                         "research-subject:pretorius")
+        clone.walk("station:hall")
+        clone.walk("station:parlor")
+        clone.open("desk:parlor")
+        clone.put("garment:coat", "desk:parlor")
+        self.assertEqual(self.home.audit_state()["items"]["garment:coat"]["container"], None)
+        self.assertEqual(clone.audit_state()["items"]["garment:coat"]["container"],
+                         "desk:parlor")
+        self.assertEqual(self.home.verify()["revision"], original["revision"])
+
     def test_crash_gap_reconciles_embodied_motion_once(self):
         body = EmbodiedAccess(self.lab)
         body.move("station:hall", event_id="step-to-hall")
