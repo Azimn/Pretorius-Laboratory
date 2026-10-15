@@ -20,13 +20,13 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Exercise opt-in domestic life and automatic spoken reflex
         run: |
-          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/home.sqlite3" init
-          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/home.sqlite3" init
-          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/home.sqlite3" look
-          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/home.sqlite3" walk station:hall
-          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/home.sqlite3" walk station:shop:private
-          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/home.sqlite3" verify
-          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/home.sqlite3" shop-manifest
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/domestic-pilot.sqlite3" init
+          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/domestic-pilot.sqlite3" init
+          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/domestic-pilot.sqlite3" look
+          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/domestic-pilot.sqlite3" walk station:hall
+          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/domestic-pilot.sqlite3" walk station:shop:private
+          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/domestic-pilot.sqlite3" verify
+          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/domestic-pilot.sqlite3" shop-manifest
       - name: Exercise persistent CLI restart and verification
         run: |
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" init
