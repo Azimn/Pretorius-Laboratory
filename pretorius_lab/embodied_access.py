@@ -19,7 +19,14 @@ SUBJECT_ID = "research-subject:pretorius"
 INITIAL_STATION = "station:threshold"
 # Discrete navigable floor stations, not invented travel distances.
 STATIONS = {
-    "station:threshold": ("room:sanctum", ("station:center",)),
+    "station:threshold": ("room:sanctum", ("station:center", "station:hall")),
+    "station:hall": ("room:hall", ("station:threshold", "station:kitchen",
+                                 "station:bedroom", "station:parlor", "station:shop:private")),
+    "station:kitchen": ("room:kitchen", ("station:hall",)),
+    "station:bedroom": ("room:bedroom", ("station:hall",)),
+    "station:parlor": ("room:parlor", ("station:hall",)),
+    "station:shop:private": ("room:shop", ("station:hall", "station:shop:public")),
+    "station:shop:public": ("room:shop", ("station:shop:private",)),
     "station:center": ("room:sanctum", (
         "station:threshold", "station:shelf:1", "station:shelf:2",
         "station:shelf:3", "station:bench", "station:corner:nw",
@@ -120,6 +127,11 @@ def _scene(db, host: dict, station: str) -> dict:
     fixture_labels = {
         "room:sanctum": ["bookshelves", "workbench", "chamber doorway"],
         "room:experiment": ["experimental table", "sanctum doorway"],
+        "room:hall": ["a narrow passage", "the laboratory door", "domestic rooms"],
+        "room:kitchen": ["stove", "kitchen table", "cupboard"],
+        "room:bedroom": ["bedstead", "wardrobe", "bedside drawer"],
+        "room:parlor": ["armchair", "writing desk"],
+        "room:shop": ["small display counter", "front window", "a dividing curtain"],
     }
     from .bench_instruments import exists as bench_instruments_exist
     tools_visible = (["ruler:bench", "balance:bench"]

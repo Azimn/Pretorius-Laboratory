@@ -425,6 +425,13 @@ class SpatialHabitat:
             ).fetchone() is not None
         if has_body:
             EmbodiedAccess(self).verify()
+        from .home_life import HomeLife
+        with self._open() as db:
+            has_home = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='domestic_meta'"
+            ).fetchone() is not None
+        if has_home:
+            HomeLife(self).verify()
         from .shelf_annex import ShelfAnnex
         with self._open() as db:
             has_annex = ShelfAnnex.exists(db)
@@ -474,6 +481,8 @@ class SpatialHabitat:
             PhysicalAffordances(SpatialHabitat(dest)).verify()
         if has_instruments:
             BenchInstruments(SpatialHabitat(dest)).verify()
+        if has_home:
+            HomeLife(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
@@ -501,6 +510,13 @@ class SpatialHabitat:
             ).fetchone() is not None
         if has_body:
             EmbodiedAccess(self).verify()
+        from .home_life import HomeLife
+        with self._open() as source:
+            has_home = source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='domestic_meta'"
+            ).fetchone() is not None
+        if has_home:
+            HomeLife(self).verify()
         from .shelf_annex import ShelfAnnex
         with self._open() as source:
             has_annex = ShelfAnnex.exists(source)
@@ -551,6 +567,8 @@ class SpatialHabitat:
             BenchInstruments(self)._fork_into(clone)
         if has_observations:
             ObservationPort(clone).initialize()
+        if has_home:
+            HomeLife(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
