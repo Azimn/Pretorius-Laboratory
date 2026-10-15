@@ -1,5 +1,39 @@
 # Pretorius Laboratory
 
+## Opt-in permanent home and small curiosity shop (experimental)
+
+The [domestic home/reflex pilot](docs/PERMANENT_HOME_AND_REFLEX_PILOT_2026-10-15.md)
+builds a **single physically accountable, persistent building** around
+the original laboratory: hall, kitchen, bedroom, parlor, and a tiny **closed**
+shop behind a curtain. Furnishings and possessions survive SQLite restart,
+backup, and isolated experimental forks. The public shop window still says
+OPENING SOON; this does **not** activate Pretorius or his shop in
+Frankenstein Village.
+
+The new `pretorius_lab.home_life.HomeLife` class uses the existing
+`EmbodiedAccess` subject position; domestic actions are recorded in a
+separate hash-verified annex to the **same** spatial-v2 world. Walking into
+the shop while a low stool obstructs the narrow path triggers a mechanically
+recorded foot-withdrawal/soreness response, possible *"Ow! My foot!"* spoken
+aloud, and subsequent first-person surprise at having spoken without
+deliberating. Moving the stool removes that cause. Numerical causal state is
+engineer-only; the subject receives natural-language inner experience and
+speech only.
+
+On a **new opt-in** database:
+
+```bash
+python -m pretorius_lab.habitat_v2 --db data/home-pilot.sqlite3 init
+python -m pretorius_lab.home_cli --db data/home-pilot.sqlite3 init
+python -m pretorius_lab.home_cli --db data/home-pilot.sqlite3 walk station:hall
+python -m pretorius_lab.home_cli --db data/home-pilot.sqlite3 walk station:shop:private
+python -m pretorius_lab.home_cli --db data/home-pilot.sqlite3 verify
+```
+
+The [shop manifest](docs/PERMANENT_HOME_AND_REFLEX_PILOT_2026-10-15.md#the-future-two-world-shop-boundary)
+is currently read-only; no live Village inventory handshake or sale exists.
+
+
 **An enduring place for experiments, not a disposable test fixture.**
 
 Pretorius Laboratory is a standalone, low-cost Python/SQLite research habitat. Laboratory objects, experiments, snapshots and physical consequences persist independently of the model speaking for Pretorius and independently of Frankenstein Village.
