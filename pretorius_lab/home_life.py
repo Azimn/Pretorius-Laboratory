@@ -75,6 +75,7 @@ def initial_state() -> dict:
         # The low stool is a real declared collision affordance, not a
         # pseudo-random narrator trigger. It can be moved out of the path.
         "low_stool_obstructs_path": True,
+        "body": {"foot_soreness": 0, "steps": 0, "effort": 0, "reflexes": 0},
     }
 
 
@@ -110,7 +111,7 @@ def _current_body(db):
 
 
 def _validate_state(state):
-    if set(state) != {"containers", "items", "shop_open", "low_stool_obstructs_path"}:
+    if set(state) != {"containers", "items", "shop_open", "low_stool_obstructs_path", "body"}:
         raise Conflict("Unknown domestic state shape")
     if set(state["containers"]) != set(CONTAINERS) or set(state["items"]) != set(START_ITEMS):
         raise Conflict("Domestic identities were silently added or removed")
@@ -134,6 +135,12 @@ def _validate_state(state):
             raise Conflict("Container over capacity")
     if type(state["shop_open"]) is not bool or type(state["low_stool_obstructs_path"]) is not bool:
         raise Conflict("Bad world switches")
+    body = state["body"]
+    if set(body) != {"foot_soreness", "steps", "effort", "reflexes"} or any(
+            type(value) is not int or value < 0 for value in body.values()):
+        raise Conflict("Invalid physical body indicators")
+    if body["foot_soreness"] > 3:
+        raise Conflict("Invalid foot soreness range")
 
 
 def _room(station):
@@ -173,10 +180,21 @@ def _apply(state: dict, op: str, args: dict, station: str) -> tuple[dict, dict]:
             raise Conflict("Unverifiable body movement")
         if args["from_station"] not in STATIONS or station not in STATIONS[args["from_station"]][1]:
             raise Conflict("Impossible physical adjacency")
-        inner = "I walk into " + ROOM_LABELS[room] + "."
+        new["body"]["steps"] += 1
+        if new["body"]["foot_soreness"]:
+            new["body"]["foot_soreness"] -= 1
+            new["body"]["effort"] += 2
+            lingering = " My foot is still tender."
+        else:
+            new["body"]["effort"] += 1
+            lingering = ""
+        inner = "I walk into " + ROOM_LABELS[room] + "." + lingering
         # A collision occurs from the real, stationary obstacle state on
         # entry. The vocal reflex precedes the subject's reflective appraisal.
         if station == "station:shop:private" and new["low_stool_obstructs_path"]:
+            new["body"]["foot_soreness"] = 3
+            new["body"]["reflexes"] += 1
+            new["body"]["effort"] += 2
             spoken = "Ow! My foot!"
             inner = ("My foot catches against the low stool. I jerk it back. "
                      "That was aloud? I had not meant to say anything.")
@@ -247,7 +265,7 @@ class HomeLife:
     def __init__(self, habitat: SpatialHabitat):
         self.habitat = habitat
 
-    def initialize(self) -> dict:
+    def initialize(self, *, initial_state: dict | None = None, parent: dict | None = None) -> dict:
         self.habitat.verify()
         # This is the same existing embodied subject, not a second avatar.
         body = EmbodiedAccess(self.habitat)
@@ -259,6 +277,8 @@ class HomeLife:
             body.initialize()
         else:
             body.verify()
+        seed = copy.deepcopy(initial_state if initial_state is not None else FIXTURE)
+        _validate_state(seed)
         with self.habitat._open() as db:
             db.execute("BEGIN IMMEDIATE")
             host = SpatialHabitat._metadata(db)
@@ -277,7 +297,9 @@ class HomeLife:
                     "rules": RULES, "fixture_digest": FIXTURE_DIGEST,
                     "lab_id": host["lab_id"], "home_id": host["home_id"],
                     "world_epoch": host["world_epoch"], "mode": host["mode"],
-                    "genesis": FIXTURE, "state": FIXTURE,
+                    "genesis": seed, "genesis_digest": digest(seed),
+                    "state": seed, "parent": parent,
+                    "initial_station": subject["station"],
                     "revision": 0, "head_hash": GENESIS_HASH,
                     "body_seen": subject["revision"],
                     "body_at_install": subject["revision"],
@@ -286,6 +308,8 @@ class HomeLife:
             elif (m["lab_id"], m["world_epoch"], m["fixture_digest"]) != (
                     host["lab_id"], host["world_epoch"], FIXTURE_DIGEST):
                 raise Conflict("Domestic environment belongs to a different world")
+            elif initial_state is not None or parent is not None:
+                raise Conflict("Cannot reseed an existing home")
         return self.verify()
 
     def _catch_up(self) -> None:
@@ -348,8 +372,10 @@ class HomeLife:
                     world["world_epoch"], world["mode"]):
                 raise Conflict("Domestic provenance or rules mismatch")
             state = copy.deepcopy(m["genesis"])
-            if digest(state) != FIXTURE_DIGEST:
+            if digest(state) != m["genesis_digest"] or not isinstance(m["parent"], (type(None), dict)):
                 raise Conflict("Altered domestic genesis")
+            if m["parent"] is None and digest(state) != FIXTURE_DIGEST:
+                raise Conflict("Canonical home genesis was replaced")
             _validate_state(state)
             previous, rev = GENESIS_HASH, 0
             body_at_install = m["body_at_install"]
@@ -375,7 +401,7 @@ class HomeLife:
                     raise Conflict("Impossible referenced body revision")
                 # Body pose at this revision is the destination, or initial
                 # station when the home was installed with revision zero.
-                station = bod["after_station"] if bod else "station:threshold"
+                station = bod["after_station"] if bod else m["initial_station"]
                 if (e["station"] != station or e["before_digest"] != digest(state)):
                     raise Conflict("Domestic access or previous state falsified")
                 if e["op"] == "walk":
@@ -467,6 +493,19 @@ class HomeLife:
                     "world_epoch": m["world_epoch"], "revision": m["revision"],
                     "head_hash": m["head_hash"], "shop_open": m["state"]["shop_open"],
                     "stock": stock, "mode": "read_only_not_a_village_sale"}
+
+    def _fork_into(self, clone: SpatialHabitat) -> None:
+        """Copy *current possessions* into a sandbox, never prior lived acts."""
+        proof = self.verify()
+        self._catch_up()
+        with self.habitat._open() as db:
+            m = _meta(db)
+            snapshot = copy.deepcopy(m["state"])
+            parent = {"home_id": m["home_id"], "world_epoch": m["world_epoch"],
+                      "revision": m["revision"], "head_hash": m["head_hash"],
+                      "body_seen": m["body_seen"],
+                      "provenance": "copied_state_not_lived_event"}
+        HomeLife(clone).initialize(initial_state=snapshot, parent=parent)
 
     def audit_state(self) -> dict:
         """Engineer-only; NEVER send this dictionary to the subject."""
