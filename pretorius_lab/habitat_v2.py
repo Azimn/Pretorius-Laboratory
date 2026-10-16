@@ -432,6 +432,13 @@ class SpatialHabitat:
             ).fetchone() is not None
         if has_home:
             HomeLife(self).verify()
+        from .daily_rhythm import DailyRhythm
+        with self._open() as source:
+            has_rhythm = source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='rhythm_meta'"
+            ).fetchone() is not None
+        if has_rhythm:
+            DailyRhythm(self).verify()
         from .shelf_annex import ShelfAnnex
         with self._open() as db:
             has_annex = ShelfAnnex.exists(db)
@@ -483,6 +490,8 @@ class SpatialHabitat:
             BenchInstruments(SpatialHabitat(dest)).verify()
         if has_home:
             HomeLife(SpatialHabitat(dest)).verify()
+        if has_rhythm:
+            DailyRhythm(SpatialHabitat(dest)).verify()
         return proof
 
     def fork_to(self, destination: str | Path) -> dict:
@@ -517,6 +526,13 @@ class SpatialHabitat:
             ).fetchone() is not None
         if has_home:
             HomeLife(self).verify()
+        from .daily_rhythm import DailyRhythm
+        with self._open() as source:
+            has_rhythm = source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='rhythm_meta'"
+            ).fetchone() is not None
+        if has_rhythm:
+            DailyRhythm(self).verify()
         from .shelf_annex import ShelfAnnex
         with self._open() as source:
             has_annex = ShelfAnnex.exists(source)
@@ -569,6 +585,8 @@ class SpatialHabitat:
             ObservationPort(clone).initialize()
         if has_home:
             HomeLife(self)._fork_into(clone)
+        if has_rhythm:
+            DailyRhythm(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
