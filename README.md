@@ -1,5 +1,26 @@
 # Pretorius Laboratory
 
+## Unified first-person Laboratory interface (experimental)
+
+The [source-backed first-person subject port](docs/UNIFIED_FIRST_PERSON_LAB_PORT_2026-10-15.md)
+combines bodily contact and spontaneous verbal response, domestic
+possessions and environmental needs into one **restricted subject view**.
+It also checks live lighting/effort conditions inside existing embodied book,
+physical custody and instrument operations, so old subject access routes
+cannot make impossible actions succeed in the dark. The separate
+research-engineer and world setup tools stay privileged.
+
+```bash
+python -m pretorius_lab.habitat_v2 --db data/subject-pilot.sqlite3 init
+python -m pretorius_lab.home_cli --db data/subject-pilot.sqlite3 init
+python -m pretorius_lab.daily_cli --db data/subject-pilot.sqlite3 init
+python -m pretorius_lab.subject_cli --db data/subject-pilot.sqlite3 look
+```
+
+This prepares an interface for future admission to the **actual Doctor
+Lives cognition**; it is not yet that brain integration or an autonomous
+agent, and it does not justify increasing any Article score.
+
 ## Daily life, finite supplies and physical work (experimental)
 
 The [daily-life causal pilot](docs/DAILY_LIFE_CAUSAL_PILOT_2026-10-15.md)
