@@ -86,10 +86,17 @@ class DailyRhythmTests(unittest.TestCase):
         self.assertGreaterEqual(after["hunger"], before["hunger"])
 
     def test_work_is_rejected_when_dark_and_allowed_when_light(self):
-        self.walk("station:center", "station:bench")
+        # Prepare and drink real tea before a long laboratory session.
+        # Otherwise dehydration, not darkness, is the active work blocker.
+        self.walk("station:hall", "station:kitchen")
+        self.life.act("brew_tea")
+        self.walk("station:hall", "station:threshold",
+                  "station:center", "station:bench")
         self.life.advance(240)
         self.life.advance(240)
-        self.life.advance(180)  # exactly 18:00: night, but still fit to work
+        self.life.advance(160)  # 18:00: night, still hydrated and fit to work
+        self.assertLess(self.life.audit_state()["thirst"], 8)
+        self.assertLess(self.life.audit_state()["fatigue"], 7)
         self.assertIn("too dark", self.life.look()["inner"])
         before = self.life.audit_state()
         with self.assertRaises(Conflict):
