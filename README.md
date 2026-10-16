@@ -1,5 +1,28 @@
 # Pretorius Laboratory
 
+## Daily life, finite supplies and physical work (experimental)
+
+The [daily-life causal pilot](docs/DAILY_LIFE_CAUSAL_PILOT_2026-10-15.md)
+adds an **opt-in** environmental clock, day/night light, oil-burning lamps,
+finite food/water/fuel, meals, rest/sleep and need accumulation, plus
+Laboratory experiments that consume reagents, wear down apparatus and require
+actual repairs/cleaning before work can continue. The same existing
+embodied body position is used; no separate avatar or Village interface is
+introduced. The source-replayed SQLite annex keeps simulation numbers
+engineer-only and returns first-person prose to the subject.
+
+```bash
+python -m pretorius_lab.habitat_v2 --db data/rhythm-pilot.sqlite3 init
+python -m pretorius_lab.home_cli --db data/rhythm-pilot.sqlite3 init
+python -m pretorius_lab.daily_cli --db data/rhythm-pilot.sqlite3 init
+python -m pretorius_lab.daily_cli --db data/rhythm-pilot.sqlite3 look
+```
+
+This is a deterministic, locally advanced **research prototype**, not
+autonomous living time or fully integrated cognition. Existing inhabited
+Laboratory databases are never migrated implicitly; simulation outcomes
+still need causal Article tests before any progress score changes.
+
 ## Opt-in permanent home and small curiosity shop (experimental)
 
 The [domestic home/reflex pilot](docs/PERMANENT_HOME_AND_REFLEX_PILOT_2026-10-15.md)
