@@ -7,6 +7,8 @@ memories. Numeric environmental state stays below this boundary.
 """
 from __future__ import annotations
 
+import re
+
 from .daily_rhythm import DailyRhythm
 from .embodied_access import EmbodiedAccess
 from .habitat_v2 import SpatialHabitat
@@ -15,7 +17,7 @@ from .physics import Conflict, LabError
 
 
 def _frame(text, spoken=None):
-    if not isinstance(text, str) or not text.strip() or not text.strip().startswith("I "):
+    if not isinstance(text, str) or not re.match(r"^(?:I\b|My\b|Mine\b|Me\b)", text.strip()):
         raise Conflict("Subject experience must be substantial first-person natural language")
     if spoken is not None and (not isinstance(spoken, str) or not spoken.strip()):
         raise Conflict("Malformed out-loud response")
