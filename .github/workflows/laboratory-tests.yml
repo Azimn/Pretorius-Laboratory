@@ -39,6 +39,16 @@ jobs:
           python -m pretorius_lab.daily_cli --db "$RUNNER_TEMP/rhythm-pilot.sqlite3" advance 120
           python -m pretorius_lab.daily_cli --db "$RUNNER_TEMP/rhythm-pilot.sqlite3" look
           python -m pretorius_lab.daily_cli --db "$RUNNER_TEMP/rhythm-pilot.sqlite3" verify
+      - name: Exercise first-person unified subject port and physical resource gates
+        run: |
+          python -m pretorius_lab.habitat_v2 --db "$RUNNER_TEMP/subject-pilot.sqlite3" init
+          python -m pretorius_lab.home_cli --db "$RUNNER_TEMP/subject-pilot.sqlite3" init
+          python -m pretorius_lab.daily_cli --db "$RUNNER_TEMP/subject-pilot.sqlite3" init
+          python -m pretorius_lab.subject_cli --db "$RUNNER_TEMP/subject-pilot.sqlite3" look
+          python -m pretorius_lab.subject_cli --db "$RUNNER_TEMP/subject-pilot.sqlite3" walk station:hall
+          python -m pretorius_lab.subject_cli --db "$RUNNER_TEMP/subject-pilot.sqlite3" walk station:shop:private
+          python -m pretorius_lab.subject_cli --db "$RUNNER_TEMP/subject-pilot.sqlite3" light
+          python -m pretorius_lab.subject_cli --db "$RUNNER_TEMP/subject-pilot.sqlite3" look
       - name: Exercise persistent CLI restart and verification
         run: |
           python -m pretorius_lab --db "$RUNNER_TEMP/lab.sqlite3" init
