@@ -84,16 +84,16 @@ class SubjectPort:
             raise Conflict("The body moved during sensory assembly")
         return _frame(_append(*parts))
 
-    def act(self, operation: str, *, event_id: str | None = None, **args):
+    def act(self, command: str, *, event_id: str | None = None, **args):
         """Return *only* first-person inner text and optional audible words."""
         self.verify()
-        if operation == "look":
+        if command == "look":
             if args or event_id is not None:
                 # Observation is built from several separately sourced
                 # local look receipts; no synthetic cross-ledger event ID.
                 raise LabError("Combined look does not accept a synthetic receipt ID")
             return self.observe()
-        if operation == "walk":
+        if command == "walk":
             if set(args) != {"station"}:
                 raise LabError("Walking requires an adjacent named station")
             happened = self.home.walk(args["station"], event_id=event_id)
@@ -102,32 +102,37 @@ class SubjectPort:
             current = self.rhythm.look()
             return _frame(_append(happened["inner"], current["inner"]),
                           happened["spoken_aloud"])
-        if operation in {"open", "close"}:
+        if command in {"open", "close"}:
             if set(args) != {"container"}:
                 raise LabError("Choose physical furniture")
-            return _from_experience(getattr(self.home, operation)(
+            return _from_experience(getattr(self.home, command)(
                 args["container"], event_id=event_id))
-        if operation == "take":
+        if command == "take":
             if set(args) != {"item"}:
                 raise LabError("Choose an accessible domestic item")
             return _from_experience(self.home.take(args["item"], event_id=event_id))
-        if operation == "put":
+        if command == "put":
             if set(args) != {"item", "container"}:
                 raise LabError("Specify a carried item and a local container")
             return _from_experience(self.home.put(
                 args["item"], args["container"], event_id=event_id))
-        if operation == "shift_stool":
+        if command == "shift_stool":
             if set(args) != {"obstructs_path"} or type(args["obstructs_path"]) is not bool:
                 raise LabError("Provide the actual intended stool position")
             return _from_experience(self.home.shift_stool(
                 obstructs_path=args["obstructs_path"], event_id=event_id))
-        if operation in {
+        if command in {
             "advance", "light", "extinguish", "prepare_meal", "eat",
             "brew_tea", "sleep", "rest", "clean", "experiment", "repair",
         }:
-            return _from_experience(self.rhythm.act(
-                operation, event_id=event_id, **args))
-        if operation == "book":
+            outcome = self.rhythm.act(command, event_id=event_id, **args)
+            if command == "advance":
+                # Older rhythm receipts legitimately begin "Time passes".
+                # Keep their replay stable; adapt the *new subject surface*.
+                return _frame("I notice time passing. " + outcome["inner"],
+                              outcome["spoken_aloud"])
+            return _from_experience(outcome)
+        if command == "book":
             required = {"book_id", "operation"}
             if not required <= set(args) or set(args) - (
                     required | {"direction", "bookmark_id"}):
@@ -151,7 +156,7 @@ class SubjectPort:
             if action not in labels:
                 raise LabError("Unknown book operation")
             return _frame("I " + labels[action] + " the volume.")
-        if operation == "measure":
+        if command == "measure":
             if set(args) != {"instrument", "object_id", "quantity"}:
                 raise LabError("A measurement requires an instrument, item and quantity")
             receipt = self.embodied.measure(
@@ -169,12 +174,12 @@ class SubjectPort:
                 f"I use the instrument and read a {quantity} of about "
                 f"{seen['value']} {unit}."
             )
-        if operation == "take_book":
+        if command == "take_book":
             if set(args) != {"book_id"}:
                 raise LabError("Take one actual book")
             self.embodied.take(args["book_id"], event_id=event_id)
             return _frame("I lift the volume into my hands.")
-        if operation == "put_book":
+        if command == "put_book":
             if set(args) != {"book_id", "anchor_id"}:
                 raise LabError("Place the held book at a real reachable location")
             self.embodied.put(args["book_id"], args["anchor_id"], event_id=event_id)
