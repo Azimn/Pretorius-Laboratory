@@ -332,6 +332,9 @@ class BookCustody:
                         if meta["revision"] else None)
             if (recorded[0] if recorded else GENESIS_HASH) != meta["head_hash"]:
                 raise Conflict("Physical custody event head invalid")
+            if operation != "operator_place":
+                from .rhythm_gate import require as require_daily_conditions
+                require_daily_conditions(db, body["station"], "book_handle")
             if book_id not in raw or (
                     operation != "operator_place" and raw[book_id]["kind"] != "book"):
                 raise LabError("Unknown supported physical object")
