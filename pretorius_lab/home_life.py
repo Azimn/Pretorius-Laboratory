@@ -438,6 +438,10 @@ class HomeLife:
             # The operator has no permission to invent a new pose.
             if m["body_seen"] != bod["revision"]:
                 raise Conflict("Embodied movement must be reconciled first")
+            if op in {"look", "take", "put"}:
+                from .rhythm_gate import require as require_daily_conditions
+                require_daily_conditions(db, bod["station"],
+                                         "home_inspect" if op == "look" else "home_handle")
             return self._append(db, m, op, args, bod["station"],
                                 bod["revision"], bod["head_hash"], event_id)
 

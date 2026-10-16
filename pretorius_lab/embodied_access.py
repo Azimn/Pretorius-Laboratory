@@ -100,6 +100,8 @@ def _scene(db, host: dict, station: str) -> dict:
         books = json.loads(rows[0]) if rows else {}
     room, neighbors = STATIONS[station]
     known = ACCESSIBLE_FIXTURE.get(station)
+    from .rhythm_gate import lit
+    visibility = lit(db, station)
     locally_visible = []
     carrying = []
     for oid, obj in sorted(objects.items()):
@@ -113,7 +115,7 @@ def _scene(db, host: dict, station: str) -> dict:
         anchor = host["state"]["anchors"][anchor_id]
         if anchor["room"] != room:
             continue
-        if (known is None or (
+        if not visibility or (known is None or (
                 anchor["parent"] != known and anchor_id != known)):
             continue
         item = {
@@ -139,11 +141,11 @@ def _scene(db, host: dict, station: str) -> dict:
                      else [])
     return {
         "location": {"room": room, "station": station},
-        "perceived_features": fixture_labels[room],
+        "perceived_features": (fixture_labels[room] if visibility else ["darkness"]),
         "at_hand_fixture": known,
         "nearby_objects": locally_visible,
         "held_objects": carrying,
-        "available_instruments": tools_visible,
+        "available_instruments": tools_visible if visibility else [],
         "available_moves": sorted(neighbors),
         "access_level": "qualitative_local_not_global_survey",
         "observation_class": "offered_not_proof_of_subject_attention",

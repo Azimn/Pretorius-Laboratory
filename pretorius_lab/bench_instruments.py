@@ -232,6 +232,8 @@ class BenchInstruments:
             if pose["station"] != STATION or (
                     _pose(db, pose["revision"]) != (pose["head_hash"], STATION)):
                 raise LabError("Approach the workbench instrument first")
+            from .rhythm_gate import require as require_daily_conditions
+            require_daily_conditions(db, pose["station"], "measure")
             if _cursor(db, "custody_events", custody["revision"]) != custody["head_hash"]:
                 raise Conflict("World handling cursor is invalid")
             obj = effective_objects(db).get(object_id)

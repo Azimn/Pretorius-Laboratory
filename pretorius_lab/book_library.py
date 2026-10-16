@@ -400,6 +400,9 @@ class BookLibrary:
                 elif (_station_for_anchor(host["state"]["anchors"], location)
                       != body["station"]):
                     raise LabError("Approach the book's current physical location")
+                from .rhythm_gate import require as require_daily_conditions
+                if action["op"] in {"read", "open", "turn", "mark", "open_mark"}:
+                    require_daily_conditions(db, body["station"], "book_read")
                 from .physical_affordances import profile_at, check_actor_reach
                 mechanical_profile = profile_at(db, host)
                 if location is not None:
