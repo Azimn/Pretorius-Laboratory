@@ -89,8 +89,7 @@ class DailyRhythmTests(unittest.TestCase):
         self.walk("station:center", "station:bench")
         self.life.advance(240)
         self.life.advance(240)
-        self.life.advance(180)  # 17:?? - adjust via next step to night
-        self.life.advance(120)  # after sundown
+        self.life.advance(180)  # exactly 18:00: night, but still fit to work
         self.assertIn("too dark", self.life.look()["inner"])
         before = self.life.audit_state()
         with self.assertRaises(Conflict):
