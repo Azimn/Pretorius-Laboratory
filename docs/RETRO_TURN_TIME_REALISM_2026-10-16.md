@@ -24,6 +24,8 @@ The optional `TurnCostSubjectPort` wraps the one existing `SubjectPort`. It char
 
 Timed actions need a stable, host-authorized event ID. The adapter records pending intents in the **same world database**, prevents reassigning an event ID to another command, prevents a later timed action from overtaking an unresolved one, and caches the exact first-person response after successful completion. A rejected action does not cost minutes and its reservation is released only when authoritative world verification and absence of the physical receipt show no action occurred. On interruption after the physical action but before the time tick, retrying the same ID can finish the tick. In the narrower post-clock/pre-final-record crash window, replay fails closed and requires explicit engineering reconciliation, rather than recomposing an unverified historic utterance.
 
+Long visual activities check **projected completion light**, using the same deterministic clock and existing lamp/daylight state. A measurement attempted at 17:54 without a lamp is refused rather than being credited as an uninterrupted eight-minute reading after dark. A denied precondition costs no turn and cannot create a source receipt. This is a coarse action-level approximation, not continuous minute-by-minute physics.
+
 The wrapper is not a security-enforced replacement for every older API. It is an experimental *single-host action interface*. Any future integration must prevent privileged legacy side channels and demonstrate safe use across the real Doctor bridge.
 
 ## Matched-world measurement
