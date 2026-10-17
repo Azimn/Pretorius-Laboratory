@@ -1,0 +1,34 @@
+name: Longitudinal Laboratory freshness and replay
+on:
+  push:
+    branches:
+      - experiment/lab-multiday-meal-freshness-20261017
+  pull_request:
+    paths:
+      - pretorius_lab/daily_rhythm.py
+      - pretorius_lab/rhythm_gate.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/daily_cli.py
+      - tests/test_multiday_food.py
+      - tools/multiday_food_comparison.py
+      - .github/workflows/multiday-food.yml
+  workflow_dispatch:
+jobs:
+  multiday:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Run precise boundary, replay, restart and forty-eight-hour regression
+        run: python -m unittest discover -s tests -p 'test_multiday_food.py' -v
+      - name: Verify all Laboratory systems
+        run: python -m unittest discover -s tests -v
+      - name: Compare paired multi-day material worlds
+        run: python -m tools.multiday_food_comparison
