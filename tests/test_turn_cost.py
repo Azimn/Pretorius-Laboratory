@@ -127,6 +127,24 @@ class TurnCostTests(unittest.TestCase):
         self.assertEqual(self.state()["minute"], 422)
         self.assertEqual(DailyRhythm(control_lab).audit_state()["fatigue"], self.state()["fatigue"])
 
+    def test_long_visual_task_cannot_finish_after_nightfall(self):
+        self.timed.act("walk", event_id="to-center", station="station:center")
+        self.timed.act("walk", event_id="to-bench", station="station:bench")
+        for n, minutes in enumerate((240, 240, 170)):
+            self.base.rhythm.advance(minutes, event_id=f"toward-evening-{n}")
+        before = self.state()
+        self.assertEqual(before["minute"], 1074)  # 17:54
+        with self.assertRaises(Conflict):
+            self.timed.act("measure", event_id="daylight-will-expire",
+                           instrument="balance", object_id="beaker:001",
+                           quantity="mass_g")
+        self.assertEqual(self.state(), before)
+        with self.lab._open() as db:
+            self.assertIsNone(db.execute(
+                "SELECT status FROM turn_cost_intents WHERE event_id=?",
+                ("daylight-will-expire",)).fetchone())
+        self.assertTrue(self.timed.verify()["verified"])
+
     def test_clock_tick_replay_still_rejects_fabricated_text(self):
         self.timed.act("walk", event_id="authentic", station="station:hall")
         with self.lab._open() as db:
