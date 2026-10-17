@@ -42,8 +42,11 @@ class TurnCostTests(unittest.TestCase):
         self.assertEqual(first, again)
         self.assertEqual(self.state(), before)
         with self.lab._open() as db:
-            self.assertEqual(db.execute(
-                "SELECT COUNT(*) FROM rhythm_events WHERE op='tick'").fetchone()[0], 1)
+            import json
+            ticks = [json.loads(row[0]) for row in db.execute(
+                "SELECT envelope FROM rhythm_events")
+                if json.loads(row[0])["op"] == "tick"]
+            self.assertEqual(len(ticks), 1)
 
     def test_lamp_and_bodily_regulation_use_same_clock(self):
         self.base.act("light", event_id="lit-at-start")
@@ -128,7 +131,10 @@ class TurnCostTests(unittest.TestCase):
         self.timed.act("walk", event_id="authentic", station="station:hall")
         with self.lab._open() as db:
             import json
-            row = db.execute("SELECT revision,envelope FROM rhythm_events WHERE op='tick'").fetchone()
+            row = next((r for r in db.execute(
+                "SELECT revision,envelope FROM rhythm_events")
+                if json.loads(r[1])["op"] == "tick"), None)
+            self.assertIsNotNone(row)
             payload = json.loads(row[1])
             payload["subject"]["inner"] = "I have teleported outside."
             db.execute("UPDATE rhythm_events SET envelope=? WHERE revision=?",
