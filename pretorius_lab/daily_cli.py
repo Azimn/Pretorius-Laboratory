@@ -16,15 +16,17 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="op", required=True)
     for op in ("init", "verify", "audit", "look", "light", "extinguish",
                "prepare_meal", "eat", "brew_tea", "sleep", "rest",
-               "clean", "experiment", "repair"):
-        sub.add_parser(op)
+               "clean", "experiment", "repair", "discard_meal"):
+        subparser = sub.add_parser(op)
+        if op == "init":
+            subparser.add_argument("--perishable-meals", action="store_true")
     advance = sub.add_parser("advance")
     advance.add_argument("minutes", type=int)
     args = parser.parse_args(argv)
     try:
         life = DailyRhythm(SpatialHabitat(args.db))
         if args.op == "init":
-            result = life.initialize()
+            result = life.initialize(perishable_meals=args.perishable_meals)
         elif args.op == "verify":
             result = life.verify()
         elif args.op == "audit":
