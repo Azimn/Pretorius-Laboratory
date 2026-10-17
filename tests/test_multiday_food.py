@@ -126,10 +126,11 @@ class PerishableMealTests(unittest.TestCase):
     def test_fixed_age_boundary_five_hours_fifty_nine_versus_six_hours(self):
         _, life, subject = self.new("boundary", fresh=True)
         subject.act("prepare_meal", event_id="first")
-        for n, minutes in enumerate((240, 119)):
-            life.advance(minutes, event_id=f"aged-{n}")
+        life.advance(240, event_id="aged-240")
+        life.advance(110, event_id="aged-110")
+        life.act("tick", event_id="aged-nine", minutes=9)
         self.assertNotIn("must be discarded", subject.observe()["inner"])
-        life.advance(10, event_id="boundary-over")
+        life.act("tick", event_id="boundary-over", minutes=1)
         self.assertIn("must be discarded", subject.observe()["inner"])
         with self.assertRaises(Conflict):
             subject.act("eat", event_id="too-old")
