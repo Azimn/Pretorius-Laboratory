@@ -18,6 +18,8 @@ from .physics import Conflict, LabError, canonical, digest
 from .store import GENESIS_HASH, _utc
 
 RULES = "pretorius-daily-rhythm/1"
+FRESH_RULES = "pretorius-daily-rhythm/2-perishable-meals"
+MEAL_FRESH_MINUTES = 360  # deliberately coarse six-hour prepared-food window
 LAMPS = ("room:sanctum", "room:experiment", "room:hall", "room:kitchen",
          "room:bedroom", "room:parlor", "room:shop")
 DAYLIT = frozenset(("room:sanctum", "room:kitchen",
@@ -49,9 +51,25 @@ def initial_state() -> dict:
 
 INITIAL = initial_state()
 INITIAL_DIGEST = digest(INITIAL)
+FRESH_INITIAL = {**initial_state(), "meal_prepared_minute": None}
+FRESH_INITIAL_DIGEST = digest(FRESH_INITIAL)
+
+
+def _version_initial(rules: str) -> dict:
+    if rules == RULES:
+        return INITIAL
+    if rules == FRESH_RULES:
+        return FRESH_INITIAL
+    raise Conflict("Unknown household rhythm rules")
+
+
+def _meal_stale(s: dict) -> bool:
+    prepared = s.get("meal_prepared_minute")
+    return prepared is not None and s["meal_ready"] and (
+        s["minute"] - prepared >= MEAL_FRESH_MINUTES)
 OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
-              "repair"}
+              "repair", "discard_meal"}
 
 
 def _metadata(db):
@@ -90,7 +108,7 @@ def _pose(db, body_revision: int, initial_station: str):
 
 
 def _validate(state: dict) -> None:
-    if set(state) != set(INITIAL):
+    if set(state) not in (set(INITIAL), set(FRESH_INITIAL)):
         raise Conflict("Daily state schema has drifted")
     if type(state["minute"]) is not int or state["minute"] < INITIAL["minute"]:
         raise Conflict("Invalid simulated time")
@@ -116,6 +134,14 @@ def _validate(state: dict) -> None:
         raise Conflict("Invalid apparatus condition")
     if type(state["meal_ready"]) is not bool:
         raise Conflict("Invalid prepared food state")
+    if "meal_prepared_minute" in state:
+        prepared = state["meal_prepared_minute"]
+        if state["meal_ready"]:
+            if (type(prepared) is not int or
+                    not INITIAL["minute"] <= prepared <= state["minute"]):
+                raise Conflict("Prepared food has no valid preparation time")
+        elif prepared is not None:
+            raise Conflict("An absent meal cannot retain a preparation time")
     if any(type(state[k]) is not int or state[k] < 0
            for k in ("experiments", "repairs", "chores")):
         raise Conflict("Invalid work counters")
@@ -171,8 +197,12 @@ def _perceive(s: dict, station: str) -> str:
         if s["cleanliness"][room] >= 3:
             sentence += " My work area is cluttered."
     if room == "room:kitchen" and _can_see(s, room):
-        sentence += (" There is a prepared meal to eat." if s["meal_ready"]
-                     else " I have no meal prepared.")
+        sentence += (
+            " My prepared meal has been left out too long and must be discarded."
+            if _meal_stale(s) else
+            " There is a prepared meal to eat." if s["meal_ready"] else
+            " I have no meal prepared."
+        )
         if s["supplies"]["rations"] <= 0:
             sentence += " I have run out of stored food provisions."
     if room == "room:shop" and _can_see(s, room):
@@ -237,14 +267,29 @@ def transition(state: dict, op: str, args: dict, station: str):
         _pass_time(new, 30)
         new["fatigue"] = min(10, new["fatigue"] + 1)
         new["meal_ready"] = True
+        if "meal_prepared_minute" in new:
+            new["meal_prepared_minute"] = new["minute"]
         inner = "I prepare a simple meal from my stored provisions."
     elif op == "eat":
         if args or station != STATION_KITCHEN or not new["meal_ready"]:
             raise Conflict("I cannot eat an unprepared meal or eat it elsewhere")
+        if _meal_stale(new):
+            raise Conflict("The prepared meal has been left out too long to eat")
         new["meal_ready"] = False
+        if "meal_prepared_minute" in new:
+            new["meal_prepared_minute"] = None
         _pass_time(new, 10)
         new["hunger"] = max(0, new["hunger"] - 5)
         inner = "I eat the meal I prepared. I feel less hungry."
+    elif op == "discard_meal":
+        if "meal_prepared_minute" not in new:
+            raise LabError("Meal freshness is not enabled in this world")
+        if args or station != STATION_KITCHEN or not _meal_stale(new):
+            raise Conflict("Only an actual stale meal may be discarded in the kitchen")
+        new["meal_ready"] = False
+        new["meal_prepared_minute"] = None
+        _pass_time(new, 10)
+        inner = "I throw out the meal I left too long. The provisions are wasted."
     elif op == "brew_tea":
         if args or station != STATION_KITCHEN:
             raise LabError("Tea must be made in the kitchen")
@@ -324,10 +369,17 @@ class DailyRhythm:
         self.habitat = habitat
         self.home = HomeLife(habitat)
 
-    def initialize(self, *, initial_state: dict | None = None, parent=None):
+    def initialize(self, *, initial_state: dict | None = None, parent=None,
+                   perishable_meals: bool = False):
         self.home.verify()
-        seed = copy.deepcopy(initial_state if initial_state is not None else INITIAL)
+        if type(perishable_meals) is not bool:
+            raise LabError("Meal freshness selection must be a boolean")
+        selected_rules = FRESH_RULES if perishable_meals else RULES
+        seed = copy.deepcopy(initial_state if initial_state is not None
+                             else _version_initial(selected_rules))
         _validate(seed)
+        if set(seed) != set(_version_initial(selected_rules)):
+            raise Conflict("Initial daily-life state does not match its version")
         with self.habitat._open() as db:
             db.execute("BEGIN IMMEDIATE")
             host = SpatialHabitat._metadata(db)
@@ -344,7 +396,7 @@ class DailyRhythm:
             old = _metadata(db)
             if not old:
                 vals = {
-                    "rules": RULES, "lab_id": host["lab_id"],
+                    "rules": selected_rules, "lab_id": host["lab_id"],
                     "world_epoch": host["world_epoch"], "home_id": host["home_id"],
                     "genesis": seed, "genesis_digest": digest(seed),
                     "parent": parent, "revision": 0, "head_hash": GENESIS_HASH,
@@ -354,8 +406,9 @@ class DailyRhythm:
                 }
                 for k, value in vals.items():
                     _set(db, k, value)
-            elif (old["rules"], old["lab_id"], old["world_epoch"]) != (
-                    RULES, host["lab_id"], host["world_epoch"]):
+            elif (old["rules"] not in (RULES, FRESH_RULES) or
+                  (old["lab_id"], old["world_epoch"]) !=
+                  (host["lab_id"], host["world_epoch"])):
                 raise Conflict("Daily-life state is not from the current Laboratory")
             elif initial_state is not None or parent is not None:
                 raise Conflict("An inhabited day-to-day state cannot be reseeded")
@@ -369,15 +422,20 @@ class DailyRhythm:
             if db.execute("SELECT name FROM sqlite_master WHERE name='rhythm_meta'").fetchone() is None:
                 raise LabError("Daily-life addon has not been initialized")
             m = _metadata(db)
-            if (m["rules"], m["lab_id"], m["world_epoch"], m["home_id"]) != (
-                    RULES, world["lab_id"], world["world_epoch"], world["home_id"]):
+            if (m["rules"] not in (RULES, FRESH_RULES) or
+                    (m["lab_id"], m["world_epoch"], m["home_id"]) !=
+                    (world["lab_id"], world["world_epoch"], world["home_id"])):
                 raise Conflict("Daily life uses the wrong authority")
             if digest(m["genesis"]) != m["genesis_digest"]:
                 raise Conflict("Daily-life genesis modified without source")
-            if m["parent"] is None and m["genesis_digest"] != INITIAL_DIGEST:
+            expected_digest = (INITIAL_DIGEST if m["rules"] == RULES
+                               else FRESH_INITIAL_DIGEST)
+            if m["parent"] is None and m["genesis_digest"] != expected_digest:
                 raise Conflict("Changed canonical daily-life genesis")
             seed = copy.deepcopy(m["genesis"])
             _validate(seed)
+            if set(seed) != set(_version_initial(m["rules"])):
+                raise Conflict("Daily life state changed rules during replay")
             home = _current(db, "domestic_meta")
             if (m["home_at_install"] > home["revision"] or
                     m["body_at_install"] > bodyproof["revision"]):
@@ -481,4 +539,6 @@ class DailyRhythm:
             parent = {"lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
                       "revision": m["revision"], "head_hash": m["head_hash"],
                       "status": "cloned_state_not_subject_experience"}
-        DailyRhythm(clone).initialize(initial_state=copied, parent=parent)
+        DailyRhythm(clone).initialize(
+            initial_state=copied, parent=parent,
+            perishable_meals="meal_prepared_minute" in copied)
