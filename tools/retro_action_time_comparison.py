@@ -33,10 +33,12 @@ def run():
         first_minutes = [DailyRhythm(world).audit_state()["minute"] for world in (old, new)]
         if first_minutes != [1070, 1070]:
             raise AssertionError("Worlds did not share the same initial time")
+        timed_lines = []
         for n in range(6):
             station = "station:center" if n % 2 == 0 else "station:threshold"
             old_subject.act("walk", event_id=f"step-{n}", station=station)
-            new_subject.act("walk", event_id=f"step-{n}", station=station)
+            experienced = new_subject.act("walk", event_id=f"step-{n}", station=station)
+            timed_lines.append(experienced["inner"])
         old_life = DailyRhythm(old)
         new_life = DailyRhythm(new)
         old_state, new_state = old_life.audit_state(), new_life.audit_state()
@@ -49,6 +51,8 @@ def run():
             "timed_elapsed_minutes": new_state["minute"] - 1070,
             "control_still_in_daylight": "daylight enough" in old_scene,
             "timed_night_has_arrived": "too dark" in new_scene,
+            "artificial_time_status_repetitions": sum(
+                "attending to what I have just done" in line for line in timed_lines),
             "control_world_replay_verified": old_life.verify()["verified"],
             "timed_world_replay_verified": new_life.verify()["verified"],
             "source_boundary": "first-person experience only; audit figures engineer-only",
@@ -58,6 +62,7 @@ def run():
         assert report["timed_elapsed_minutes"] == 12
         assert report["control_still_in_daylight"]
         assert report["timed_night_has_arrived"]
+        assert report["artificial_time_status_repetitions"] == 0
         assert report["control_world_replay_verified"] and report["timed_world_replay_verified"]
         return report
 
