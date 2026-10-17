@@ -410,8 +410,9 @@ class DailyRhythm:
                   (old["lab_id"], old["world_epoch"]) !=
                   (host["lab_id"], host["world_epoch"])):
                 raise Conflict("Daily-life state is not from the current Laboratory")
-            elif initial_state is not None or parent is not None:
-                raise Conflict("An inhabited day-to-day state cannot be reseeded")
+            elif initial_state is not None or parent is not None or (
+                    perishable_meals and old["rules"] != FRESH_RULES):
+                raise Conflict("An inhabited day-to-day world cannot change its rule profile")
         return self.verify()
 
     def verify(self):
