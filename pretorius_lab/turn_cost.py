@@ -123,7 +123,30 @@ class TurnCostSubjectPort:
         # Actual world action first, one deterministic clock event second.
         # If the world operation fails, an intent remains pending; do not
         # pretend it succeeded or silently authorize another action.
-        original = self.subject.act(command, event_id=event_id, **args)
+        try:
+            original = self.subject.act(command, event_id=event_id, **args)
+        except (Conflict, LabError, ValueError):
+            # A rejected input must not strand the entire world. Remove its
+            # reservation only when the authoritative source has NO action
+            # receipt and the original world still verifies.
+            self.subject.verify()
+            domains = {
+                "walk": "embodied_events",
+                "open": "domestic_events", "close": "domestic_events",
+                "take": "domestic_events", "put": "domestic_events",
+                "shift_stool": "domestic_events", "book": "books_events",
+                "measure": "instrument_events",
+                "take_book": "custody_events", "put_book": "custody_events",
+            }
+            with self.subject.habitat._open() as db:
+                table = domains[command]
+                accepted = db.execute("SELECT 1 FROM " + table +
+                    " WHERE event_id=?", (event_id,)).fetchone()
+                if accepted is None:
+                    db.execute("""DELETE FROM turn_cost_intents
+                        WHERE world_epoch=? AND event_id=? AND status='pending'""",
+                        (epoch, event_id))
+            raise
         tick = self.subject.rhythm.act("tick", event_id=clock_id, minutes=cost)
         if (set(original) != {"inner", "spoken_aloud"} or
                 set(tick) != {"inner", "spoken_aloud"}):
