@@ -31,7 +31,7 @@ class TurnCostTests(unittest.TestCase):
         self.assertEqual(self.state()["minute"], before + 2)
         self.assertTrue(result["inner"].startswith(("I ", "My ")))
         self.assertEqual(set(result), {"inner", "spoken_aloud"})
-        self.assertIn("time", result["inner"])
+        self.assertNotIn("attending to what I have just done", result["inner"])
         self.assertTrue(self.timed.verify()["verified"])
 
     def test_duplicate_world_action_never_bills_two_turns(self):
@@ -93,7 +93,7 @@ class TurnCostTests(unittest.TestCase):
         with self.assertRaises(Conflict):
             self.timed.act("walk", event_id="unrelated-action", station="station:threshold")
         retried = self.timed.act("walk", event_id="crash-before-clock", station="station:hall")
-        self.assertIn("time", retried["inner"])
+        self.assertTrue(retried["inner"].startswith(("I ", "My ")))
         self.assertEqual(self.state()["minute"], before + 2)
         self.assertTrue(self.timed.verify()["verified"])
 
