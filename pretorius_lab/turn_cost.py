@@ -11,6 +11,7 @@ a full two-phase transaction across the physical and rhythm ledgers.
 from __future__ import annotations
 
 from hashlib import sha256
+from copy import deepcopy
 import json
 import re
 
@@ -92,6 +93,19 @@ class TurnCostSubjectPort:
             return self.subject.act(command, event_id=event_id, **args)
         if not isinstance(event_id, str) or not _ID.fullmatch(event_id):
             raise LabError("A timed action requires a stable bounded source event ID")
+        if command == "measure" or (
+                command == "book" and args.get("operation") == "read"):
+            # A whole uninterrupted visual task needs adequate light at its
+            # projected completion, not only at the instant it starts.
+            # Deterministic old-school affordance rule over the existing
+            # lamp/daylight model. No new world state or invented senses.
+            from .daily_rhythm import _can_see, _pass_time
+            from .embodied_access import STATIONS
+            state = deepcopy(self.subject.rhythm.audit_state())
+            station = self.subject.embodied.verify()["station"]
+            _pass_time(state, cost)
+            if not _can_see(state, STATIONS[station][0]):
+                raise Conflict("Not enough usable light remains to finish the task")
         args_json = _as_json(args)
         clock_id = "turn-" + sha256((epoch + "\0" + event_id).encode()).hexdigest()[:48]
         with self.subject.habitat._open() as db:
