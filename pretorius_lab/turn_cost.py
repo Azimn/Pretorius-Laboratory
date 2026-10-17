@@ -151,8 +151,12 @@ class TurnCostSubjectPort:
         if (set(original) != {"inner", "spoken_aloud"} or
                 set(tick) != {"inner", "spoken_aloud"}):
             raise Conflict("Inadmissible source experience")
+        # The clock is a world consequence, not repetitive dialogue.
+        # Natural first-person changes (darkness, thirst, fatigue) appear
+        # during subsequent observations. Keep only the original action's
+        # authentic subject experience as the delivered frame.
         result = {
-            "inner": original["inner"].strip() + " " + tick["inner"].strip(),
+            "inner": original["inner"].strip(),
             "spoken_aloud": original["spoken_aloud"],
         }
         with self.subject.habitat._open() as db:
