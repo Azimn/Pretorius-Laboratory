@@ -256,6 +256,13 @@ def transition(state: dict, op: str, args: dict, station: str):
             raise LabError("A meal must be prepared in the kitchen")
         if not _can_see(new, room) or new["fatigue"] >= 9:
             raise Conflict("Too dark or exhausted to prepare food")
+        if "meal_prepared_minute" in new:
+            # v2 only: the complete cooking turn needs usable illumination.
+            # Old v1 action results and hashes must remain unchanged.
+            projected = copy.deepcopy(new)
+            _pass_time(projected, 30)
+            if not _can_see(projected, room):
+                raise Conflict("Not enough light to finish preparing the meal")
         if new["cleanliness"][room] >= 3:
             raise Conflict("The kitchen requires cleaning before food preparation")
         if new["meal_ready"]:
