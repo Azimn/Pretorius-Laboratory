@@ -103,6 +103,27 @@ class PerishableMealTests(unittest.TestCase):
         subject.act("discard_meal", event_id="end-of-two-days")
         self.assertFalse(DailyRhythm(life.habitat).audit_state()["meal_ready"])
 
+    def test_sunset_cooking_requires_light_through_completion(self):
+        _, original, older_subject = self.new("sunset_old", fresh=False)
+        _, candidate, fresh_subject = self.new("sunset_new", fresh=True)
+        for life in (original, candidate):
+            life.advance(240)
+            life.advance(240)
+            life.advance(170)  # 17:50, 30 minutes required for cooking
+        old_before = original.audit_state()
+        fresh_before = candidate.audit_state()
+        self.assertEqual(old_before["minute"], fresh_before["minute"])
+        older_subject.act("prepare_meal", event_id="original-sunset")
+        with self.assertRaises(Conflict):
+            fresh_subject.act("prepare_meal", event_id="blocked-sunset")
+        self.assertEqual(candidate.audit_state(), fresh_before)
+        fresh_subject.act("light", event_id="lamp-for-cooking")
+        fresh_subject.act("prepare_meal", event_id="lit-sunset")
+        self.assertTrue(candidate.audit_state()["meal_ready"])
+        self.assertGreater(candidate.audit_state()["lamps"]["room:kitchen"], 0)
+        self.assertTrue(original.verify()["verified"])
+        self.assertTrue(candidate.verify()["verified"])
+
     def test_fork_preserves_stale_condition_not_parent_lived_history(self):
         world, life, subject = self.new("parent", fresh=True)
         subject.act("prepare_meal", event_id="meal")
