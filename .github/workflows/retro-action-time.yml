@@ -1,0 +1,31 @@
+name: Retro action time and realistic Laboratory state
+on:
+  push:
+    branches:
+      - experiment/retro-action-time-20261016
+  pull_request:
+    paths:
+      - pretorius_lab/turn_cost.py
+      - pretorius_lab/daily_rhythm.py
+      - tests/test_turn_cost.py
+      - .github/workflows/retro-action-time.yml
+  workflow_dispatch:
+jobs:
+  timed-laboratory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Run opt-in source-bound action-clock tests
+        run: python -m unittest discover -s tests -p 'test_turn_cost.py' -v
+      - name: Matched-world daylight and time-cost benchmark
+        run: python -m tools.retro_action_time_comparison
+      - name: Verify full Laboratory regression suite
+        run: python -m unittest discover -s tests -v

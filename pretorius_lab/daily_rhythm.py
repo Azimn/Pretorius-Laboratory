@@ -49,7 +49,7 @@ def initial_state() -> dict:
 
 INITIAL = initial_state()
 INITIAL_DIGEST = digest(INITIAL)
-OPERATIONS = {"look", "advance", "light", "extinguish", "prepare_meal",
+OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
               "repair"}
 
@@ -198,6 +198,16 @@ def transition(state: dict, op: str, args: dict, station: str):
             raise LabError("Authorized advance must be 10-240 minutes in 10-minute steps")
         _pass_time(new, minutes)
         inner = "Time passes. " + _perceive(new, station)
+    elif op == "tick":
+        # Retro turn-cost primitive. Only a trusted world adapter schedules
+        # it following an accepted source action; it is NOT a subject command.
+        # Unlike 'advance', tiny movement/handling costs can be 1-10 minutes.
+        minutes = args.get("minutes")
+        if set(args) != {"minutes"} or type(minutes) is not int or (
+                minutes < 1 or minutes > 10):
+            raise LabError("A physical turn costs 1-10 whole minutes")
+        _pass_time(new, minutes)
+        inner = "I spend a little time attending to what I have just done."
     elif op == "light":
         if args:
             raise LabError("Lighting needs no arbitrary arguments")
