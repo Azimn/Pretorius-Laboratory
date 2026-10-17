@@ -26,6 +26,6 @@ jobs:
       - name: Run opt-in source-bound action-clock tests
         run: python -m unittest discover -s tests -p 'test_turn_cost.py' -v
       - name: Matched-world daylight and time-cost benchmark
-        run: python tools/retro_action_time_comparison.py
+        run: python -m tools.retro_action_time_comparison
       - name: Verify full Laboratory regression suite
         run: python -m unittest discover -s tests -v
