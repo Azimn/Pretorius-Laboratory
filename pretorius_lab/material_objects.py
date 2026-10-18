@@ -439,6 +439,12 @@ class MaterialObjects:
             visible = []
             if _can_see(rhythm, STATIONS[station][0]):
                 for oid, item in sorted(m["state"]["objects"].items()):
+                    # A clamped wooden press is opaque. Neither an enclosed
+                    # fresh flower nor its dried successor is automatically
+                    # visible until it is physically retrieved or mounted.
+                    if (item["parent"] == "tool:flower-press"
+                            and item["kind"] in ("flower", "specimen")):
+                        continue
                     if item["stage"] != "transformed" and accessible(
                             m["state"], oid, home, station):
                         description = item["name"]
