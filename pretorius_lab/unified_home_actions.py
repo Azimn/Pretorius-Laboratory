@@ -82,6 +82,37 @@ class UnifiedHomeActions:
                 {k: json.loads(v) for k, v in db.execute(
                     "SELECT key,value FROM custody_meta")}
                 if custody else None)
+        # Being visible near a volume is not always enough to touch/read it:
+        # high-shelf mechanical reach, darkness and fatigue still apply.
+        from .physical_affordances import profile_at, check_actor_reach
+        from .book_custody import effective_objects
+        from .rhythm_gate import require as require_daily_conditions
+        from .habitat_v2 import SpatialHabitat
+        from .physics import Conflict
+        station = self.subject.embodied.verify()["station"]
+        with self.habitat._open() as db:
+            host = SpatialHabitat._metadata(db)
+            mechanical = profile_at(db, host)
+            objects = effective_objects(db)
+            try:
+                require_daily_conditions(db, station, "book_read")
+            except (Conflict, LabError):
+                local_ids.clear()
+            else:
+                for book_id in list(local_ids):
+                    if book_id not in listings:
+                        continue
+                    item = objects.get(book_id)
+                    if item is None:
+                        local_ids.discard(book_id)
+                        continue
+                    anchor = item["anchor_id"]
+                    if anchor is not None:
+                        try:
+                            check_actor_reach(mechanical, book_id, anchor,
+                                              host, lifting=False)
+                        except (Conflict, LabError):
+                            local_ids.discard(book_id)
         return found, books, listings, local_ids, custody_state
 
     def discover(self):
