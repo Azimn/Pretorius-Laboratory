@@ -149,6 +149,10 @@ class LivingActionPort:
 
     def discover(self):
         """First-person possibilities; exact source commands only in host plane."""
+        # A real embodied look appends a perception receipt, increasing
+        # bodily event revision. Obtain that source-bound observation FIRST,
+        # before freezing the body/book action-offer snapshot.
+        seen = self.home.subject.observe()
         base = self.home.discover()
         books, book_stamp = self._books()
         stamp = digest({
@@ -180,7 +184,6 @@ class LivingActionPort:
         # Existing SubjectPort is the sole truthful local scene view.
         # A list of possibilities alone cannot tell the Doctor WHERE the
         # chair actually ended up yesterday, so include lived surroundings.
-        seen = self.home.subject.observe()
         text = seen["inner"] + " " + base["subject_frame"]["inner"]
         if extra:
             text += " " + extra
