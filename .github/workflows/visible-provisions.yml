@@ -1,0 +1,34 @@
+name: Living Laboratory visible physical provision tests
+on:
+  push:
+    branches:
+      - experiment/lab-visible-provision-portions-20261017
+  pull_request:
+    paths:
+      - pretorius_lab/daily_rhythm.py
+      - pretorius_lab/home_life.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/provision_appearance.py
+      - tests/test_visible_provisions.py
+      - tools/visible_provision_comparison.py
+      - .github/workflows/visible-provisions.yml
+  workflow_dispatch:
+jobs:
+  same-world-visible-portions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Original single-source meal and tea appearance tests
+        run: python -m unittest discover -s tests -p 'test_visible_provisions.py' -v
+      - name: Matched-world v3-v4 physical appearance comparison
+        run: python -m tools.visible_provision_comparison
+      - name: Full historical Laboratory suite
+        run: python -m unittest discover -s tests -v

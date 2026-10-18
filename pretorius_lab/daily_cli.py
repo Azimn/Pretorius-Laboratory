@@ -21,6 +21,7 @@ def main(argv=None) -> int:
         if op == "init":
             subparser.add_argument("--perishable-meals", action="store_true")
             subparser.add_argument("--physical-provisions", action="store_true")
+            subparser.add_argument("--visible-portions", action="store_true")
     advance = sub.add_parser("advance")
     advance.add_argument("minutes", type=int)
     args = parser.parse_args(argv)
@@ -28,7 +29,8 @@ def main(argv=None) -> int:
         life = DailyRhythm(SpatialHabitat(args.db))
         if args.op == "init":
             result = life.initialize(perishable_meals=args.perishable_meals,
-                                     physical_provisions=args.physical_provisions)
+                                     physical_provisions=args.physical_provisions,
+                                     visible_portions=args.visible_portions)
         elif args.op == "verify":
             result = life.verify()
         elif args.op == "audit":
