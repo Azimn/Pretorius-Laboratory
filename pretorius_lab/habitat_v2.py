@@ -552,6 +552,11 @@ class SpatialHabitat:
         if has_observations:
             from .observation_receipts import ObservationPort
             ObservationPort(self).verify()
+        from .material_objects import MaterialObjects, exists as material_exists
+        with self._open() as source:
+            has_material_objects = material_exists(source)
+        if has_material_objects:
+            MaterialObjects(self).verify()
         parent = {
             "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
             "revision": m["revision"], "head_hash": m["head_hash"],
@@ -587,6 +592,8 @@ class SpatialHabitat:
             HomeLife(self)._fork_into(clone)
         if has_rhythm:
             DailyRhythm(self)._fork_into(clone)
+        if has_material_objects:
+            MaterialObjects(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
