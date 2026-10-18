@@ -233,7 +233,7 @@ def _validate(state: dict) -> None:
         if (type(marks) is not list or len(marks) > MAX_PAPER_PAGES or
                 any(type(note) is not str or not note.strip() or
                     len(note) > MAX_PAPER_CHARS or
-                    any(ord(ch) < 32 and ch != "\\n" for ch in note)
+                    any(ord(ch) < 32 and ch != "\n" for ch in note)
                     for note in marks)):
             raise Conflict("Physically written pages are malformed")
     if any(type(state[k]) is not int or state[k] < 0
@@ -401,7 +401,7 @@ def transition(state: dict, op: str, args: dict, station: str, *,
         entry = args.get("text")
         if (set(args) != {"text"} or type(entry) is not str or
                 not entry.strip() or len(entry) > MAX_PAPER_CHARS or
-                any(ord(ch) < 32 and ch != "\\n" for ch in entry)):
+                any(ord(ch) < 32 and ch != "\n" for ch in entry)):
             raise LabError("Write one bounded, nonempty authored paper entry")
         if not writing_access["paper"] or not writing_access["ink"]:
             raise Conflict("I must actually reach my writing paper and ink")
