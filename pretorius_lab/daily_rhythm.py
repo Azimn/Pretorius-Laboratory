@@ -20,6 +20,7 @@ from .store import GENESIS_HASH, _utc
 RULES = "pretorius-daily-rhythm/1"
 FRESH_RULES = "pretorius-daily-rhythm/2-perishable-meals"
 STOCK_RULES = "pretorius-daily-rhythm/3-physical-provision-access"
+VISIBLE_RULES = "pretorius-daily-rhythm/4-visible-provision-portions"
 MEAL_FRESH_MINUTES = 360  # deliberately coarse six-hour prepared-food window
 LAMPS = ("room:sanctum", "room:experiment", "room:hall", "room:kitchen",
          "room:bedroom", "room:parlor", "room:shop")
@@ -59,7 +60,7 @@ FRESH_INITIAL_DIGEST = digest(FRESH_INITIAL)
 def _version_initial(rules: str) -> dict:
     if rules == RULES:
         return INITIAL
-    if rules in (FRESH_RULES, STOCK_RULES):
+    if rules in (FRESH_RULES, STOCK_RULES, VISIBLE_RULES):
         return FRESH_INITIAL
     raise Conflict("Unknown household rhythm rules")
 
@@ -441,13 +442,19 @@ class DailyRhythm:
 
     def initialize(self, *, initial_state: dict | None = None, parent=None,
                    perishable_meals: bool = False,
-                   physical_provisions: bool = False):
+                   physical_provisions: bool = False,
+                   visible_portions: bool = False):
         self.home.verify()
-        if type(perishable_meals) is not bool or type(physical_provisions) is not bool:
+        if (type(perishable_meals) is not bool or
+                type(physical_provisions) is not bool or
+                type(visible_portions) is not bool):
             raise LabError("Rule selection must use booleans")
         if physical_provisions and not perishable_meals:
             raise LabError("Physical provisions build on the perishable-meal profile")
-        selected_rules = (STOCK_RULES if physical_provisions else
+        if visible_portions and not physical_provisions:
+            raise LabError("Visible portions require real physical provision access")
+        selected_rules = (VISIBLE_RULES if visible_portions else
+                          STOCK_RULES if physical_provisions else
                           FRESH_RULES if perishable_meals else RULES)
         seed = copy.deepcopy(initial_state if initial_state is not None
                              else _version_initial(selected_rules))
@@ -480,14 +487,16 @@ class DailyRhythm:
                 }
                 for k, value in vals.items():
                     _set(db, k, value)
-            elif (old["rules"] not in (RULES, FRESH_RULES, STOCK_RULES) or
+            elif (old["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES) or
                   (old["lab_id"], old["world_epoch"]) !=
                   (host["lab_id"], host["world_epoch"])):
                 raise Conflict("Daily-life state is not from the current Laboratory")
             elif initial_state is not None or parent is not None or (
-                    (physical_provisions and old["rules"] != STOCK_RULES) or
+                    (visible_portions and old["rules"] != VISIBLE_RULES) or
+                    (physical_provisions and not visible_portions and
+                     old["rules"] not in (STOCK_RULES, VISIBLE_RULES)) or
                     (perishable_meals and not physical_provisions and
-                     old["rules"] not in (FRESH_RULES, STOCK_RULES))):
+                     old["rules"] not in (FRESH_RULES, STOCK_RULES, VISIBLE_RULES))):
                 raise Conflict("An inhabited day-to-day world cannot change its rule profile")
         return self.verify()
 
@@ -499,7 +508,7 @@ class DailyRhythm:
             if db.execute("SELECT name FROM sqlite_master WHERE name='rhythm_meta'").fetchone() is None:
                 raise LabError("Daily-life addon has not been initialized")
             m = _metadata(db)
-            if (m["rules"] not in (RULES, FRESH_RULES, STOCK_RULES) or
+            if (m["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES) or
                     (m["lab_id"], m["world_epoch"], m["home_id"]) !=
                     (world["lab_id"], world["world_epoch"], world["home_id"])):
                 raise Conflict("Daily life uses the wrong authority")
@@ -518,7 +527,8 @@ class DailyRhythm:
                     m["body_at_install"] > bodyproof["revision"]):
                 raise Conflict("Daily-life origin cannot postdate its current world")
             prev, rev = GENESIS_HASH, 0
-            home_states = _home_snapshots(db) if m["rules"] == STOCK_RULES else None
+            home_states = (_home_snapshots(db) if m["rules"] in (STOCK_RULES, VISIBLE_RULES)
+                           else None)
             last_body, last_home = m["body_at_install"], m["home_at_install"]
             for n, event_id, encoded, prior, h in db.execute(
                 "SELECT revision,event_id,envelope,prev_hash,event_hash "
@@ -578,7 +588,7 @@ class DailyRhythm:
                     raise Conflict("Event ID cannot be reused for a different action")
                 return copy.deepcopy(e["subject"])
             access = (_stock_access(home["state"], body["station"])
-                      if m["rules"] == STOCK_RULES else None)
+                      if m["rules"] in (STOCK_RULES, VISIBLE_RULES) else None)
             after, subjective = transition(
                 m["state"], op, args, body["station"], stock_access=access)
             event = {
@@ -626,4 +636,5 @@ class DailyRhythm:
         DailyRhythm(clone).initialize(
             initial_state=copied, parent=parent,
             perishable_meals="meal_prepared_minute" in copied,
-            physical_provisions=m["rules"] == STOCK_RULES)
+            physical_provisions=m["rules"] in (STOCK_RULES, VISIBLE_RULES),
+            visible_portions=m["rules"] == VISIBLE_RULES)
