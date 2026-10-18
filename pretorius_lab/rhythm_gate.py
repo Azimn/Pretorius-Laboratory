@@ -14,6 +14,7 @@ from .physics import Conflict
 RULES = "pretorius-daily-rhythm/1"
 FRESH_RULES = "pretorius-daily-rhythm/2-perishable-meals"
 STOCK_RULES = "pretorius-daily-rhythm/3-physical-provision-access"
+VISIBLE_RULES = "pretorius-daily-rhythm/4-visible-provision-portions"
 
 def _data(db):
     if db.execute(
@@ -30,7 +31,7 @@ def _data(db):
     head = json.loads(head_row[0])
     revision = json.loads(revision_row[0])
     rules = json.loads(rules_row[0])
-    if rules not in (RULES, FRESH_RULES, STOCK_RULES) or type(revision) is not int or revision < 0:
+    if rules not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES) or type(revision) is not int or revision < 0:
         raise Conflict("Environmental constraint rules are invalid")
     if revision:
         source = db.execute(
