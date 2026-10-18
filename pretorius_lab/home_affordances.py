@@ -83,6 +83,14 @@ class HomeAffordances:
         visible = _can_see(state, room)
         stock = _stock_access(material, station)
         writing = _writing_access(material, station)
+        from .material_objects import MaterialObjects, exists as botanical_exists, ACTOR
+        with self.subject.habitat._open() as db:
+            botanical_enabled = botanical_exists(db)
+        botanical_state = (MaterialObjects(self.subject.habitat).audit_state()
+                           if botanical_enabled else None)
+        botanical_items = botanical_state["objects"] if botanical_state else {}
+        botanical_in_hand = any(
+            x["parent"] == ACTOR for x in botanical_items.values())
         offers = []
 
         def add(command, args, description, *, free_text=False):
@@ -122,6 +130,8 @@ class HomeAffordances:
                         "I could " + op + " the " + container["name"] + ".")
 
             for iid, item in sorted(material["items"].items()):
+                if botanical_in_hand:
+                    continue
                 try:
                     _apply(material, "take", {"item": iid}, station)
                 except (Conflict, LabError):
@@ -133,6 +143,13 @@ class HomeAffordances:
             for iid, item in sorted(material["items"].items()):
                 if item["held_by"] == "research-subject:pretorius":
                     for cid, container in sorted(material["containers"].items()):
+                        combined = sum(
+                            obj["parent"] == cid for obj in botanical_items.values())
+                        combined += sum(
+                            obj["container"] == cid
+                            for obj in material["items"].values())
+                        if combined >= container["capacity"]:
+                            continue
                         try:
                             _apply(material, "put", {
                                 "item": iid, "container": cid}, station)
