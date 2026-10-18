@@ -22,7 +22,7 @@ from .rhythm_gate import require as require_conditions
 RULES = "pretorius-voluntary-action-port/1"
 _BOOK_OPS = ("open", "read", "turn", "mark", "open_mark", "unmark", "close")
 _RECEIPTS = {
-    "walk": ("domestic_events", "envelope"),
+    "walk": ("embodied_events", "envelope"),
     "open": ("domestic_events", "envelope"),
     "close": ("domestic_events", "envelope"),
     "take": ("domestic_events", "envelope"),
@@ -211,6 +211,19 @@ class LivingActionPort:
             HomeArrangements(self.habitat).verify()
         elif table == "rhythm_events":
             self.home.rhythm.verify()
+        elif table == "embodied_events":
+            # A walk's stable external ID names its genuine body-motion
+            # receipt. HomeLife independently creates the domestic motion
+            # consequence under motion:<body_hash_prefix>, not that ID.
+            self.home.body.verify()
+            self.home.home.verify()
+            with self.habitat._open() as db:
+                companion = db.execute(
+                    "SELECT envelope,event_hash FROM domestic_events WHERE event_id=?",
+                    ("motion:" + hash_[:32],)).fetchone()
+            if (companion is None or
+                    digest(json.loads(companion[0])) != companion[1]):
+                raise Conflict("Movement has no verified household consequence")
         else:
             self.home.home.verify()
         return {"source_table": table, "source_event_id": event_id,
