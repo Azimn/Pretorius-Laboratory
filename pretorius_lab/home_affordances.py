@@ -69,10 +69,16 @@ class HomeAffordances:
             has_materials = materials_exist(db)
         new_objects = (MaterialObjects(self.subject.habitat).audit_state()
                        if has_materials else None)
+        from .home_arrangement import HomeArrangements, exists as arrangement_exists
+        with self.subject.habitat._open() as db:
+            has_room_changes = arrangement_exists(db)
+        arranged = (HomeArrangements(self.subject.habitat).audit_state()
+                    if has_room_changes else None)
         stamp = digest({
             "world_epoch": self.subject.verify()["world_epoch"],
             "rhythm": state, "material": material, "station": station,
             "rules": rules, "dynamic_objects": new_objects,
+            "room_arrangements": arranged,
         })
         return state, material, station, stamp
 
@@ -200,6 +206,15 @@ class HomeAffordances:
                 add("material:" + possibility["op"], possibility["args"],
                     "I could " + possibility["description"] + ".",
                     free_text=possibility["free_text"])
+        # Room arrangement is an optional source-replayed material change.
+        # It is an opportunity, not a checklist or a prescribed objective.
+        from .home_arrangement import HomeArrangements, exists as arrangement_exists
+        with self.subject.habitat._open() as db:
+            has_room_changes = arrangement_exists(db)
+        if has_room_changes:
+            for choice in HomeArrangements(self.subject.habitat).available():
+                add("arrange:" + choice["op"], choice["args"],
+                    "I could " + choice["description"] + ".")
         # Do not quietly grant offstage objects, knowledge or obligations.
         frame = {
             "inner": ("I am in " + ROOM_LABELS[room] +

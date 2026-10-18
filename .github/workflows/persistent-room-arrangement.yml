@@ -1,0 +1,32 @@
+name: Persistent Room Arrangement and Off-Script Intent
+on:
+  push:
+    branches:
+      - experiment/lab-persistent-room-arrangements-20261018
+  pull_request:
+    paths:
+      - pretorius_lab/home_arrangement.py
+      - pretorius_lab/home_intents.py
+      - pretorius_lab/home_affordances.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/habitat_v2.py
+      - tests/test_home_arrangement.py
+      - .github/workflows/persistent-room-arrangement.yml
+  workflow_dispatch:
+jobs:
+  room-continuity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11','3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Verify chair placement and honest off-script intent
+        run: python -m unittest discover -s tests -p test_home_arrangement.py -v
+      - name: Verify all earlier Laboratory, paper, specimen and persistence histories
+        run: python -m unittest discover -s tests -v

@@ -557,6 +557,11 @@ class SpatialHabitat:
             has_material_objects = material_exists(source)
         if has_material_objects:
             MaterialObjects(self).verify()
+        from .home_arrangement import HomeArrangements, exists as arrangement_exists
+        with self._open() as source:
+            has_arrangements = arrangement_exists(source)
+        if has_arrangements:
+            HomeArrangements(self).verify()
         parent = {
             "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
             "revision": m["revision"], "head_hash": m["head_hash"],
@@ -594,6 +599,8 @@ class SpatialHabitat:
             DailyRhythm(self)._fork_into(clone)
         if has_material_objects:
             MaterialObjects(self)._fork_into(clone)
+        if has_arrangements:
+            HomeArrangements(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:

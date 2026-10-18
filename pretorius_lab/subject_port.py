@@ -104,6 +104,13 @@ class SubjectPort:
             material_view = MaterialObjects(self.habitat).observe()
             if material_view["inner"].startswith("I can see "):
                 parts.append(material_view["inner"])
+        from .home_arrangement import HomeArrangements, exists as arrangements_exist
+        with self.habitat._open() as db:
+            has_arrangements = arrangements_exist(db)
+        if has_arrangements:
+            seen_room = HomeArrangements(self.habitat).observe()
+            if seen_room["inner"].startswith("I can see "):
+                parts.append(seen_room["inner"])
         # A move during multi-ledger inspection is not a coherent one-frame
         # viewpoint. Fail closed; callers can retry from the new position.
         if self._station() != station:
@@ -159,6 +166,10 @@ class SubjectPort:
                 return _frame("I notice time passing. " + outcome["inner"],
                               outcome["spoken_aloud"])
             return _from_experience(outcome)
+        if command.startswith("arrange:"):
+            from .home_arrangement import HomeArrangements
+            return _from_experience(HomeArrangements(self.habitat).act(
+                command.partition(":")[2], event_id=event_id, **args))
         if command.startswith("material:"):
             from .material_objects import MaterialObjects
             op = command.partition(":")[2]
