@@ -154,6 +154,19 @@ class UnifiedRealHomeTest(unittest.TestCase):
             ["plant:rose-001"]["parent"], "research-subject:pretorius")
         self.assertTrue(MaterialObjects(self.world).verify()["verified"])
 
+    def test_unlit_shelf_does_not_advertise_physically_unreadable_pages(self):
+        self.visit_shelf3()
+        self.assertIsNotNone(self.offer(
+            "book", book_id="book:007", operation="open"))
+        clock = DailyRhythm(self.world)
+        for i in range(3):
+            clock.advance(240, event_id=f"dim-shelf-{i}")
+        self.assertFalse(any(o["command"] == "book"
+                             for o in self.actions.discover()["offers"]))
+        self.assertEqual(
+            self.books.catalog("book:007")["book:007"]["bookmarks"], {})
+        self.assertTrue(self.books.verify()["verified"])
+
     def test_no_performance_quota_and_unselected_offers_never_create_events(self):
         first = self.actions.discover()
         self.actions.discover()
