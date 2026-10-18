@@ -1,0 +1,28 @@
+name: Unified Home Actions and Bookmarks
+on:
+  push:
+    branches:
+      - experiment/unified-home-actions-books-20261018
+  pull_request:
+    paths:
+      - pretorius_lab/unified_home_actions.py
+      - tests/test_unified_home_actions.py
+      - .github/workflows/unified-home-actions.yml
+  workflow_dispatch:
+jobs:
+  unified-experience:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Verify real book source, return-to-bookmark and other physical offers
+        run: python -m unittest discover -s tests -p test_unified_home_actions.py -v
+      - name: Recheck all original Laboratory, furniture, paper and botanical histories
+        run: python -m unittest discover -s tests -v
