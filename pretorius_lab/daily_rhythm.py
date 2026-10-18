@@ -19,6 +19,7 @@ from .store import GENESIS_HASH, _utc
 
 RULES = "pretorius-daily-rhythm/1"
 FRESH_RULES = "pretorius-daily-rhythm/2-perishable-meals"
+STOCK_RULES = "pretorius-daily-rhythm/3-physical-provision-access"
 MEAL_FRESH_MINUTES = 360  # deliberately coarse six-hour prepared-food window
 LAMPS = ("room:sanctum", "room:experiment", "room:hall", "room:kitchen",
          "room:bedroom", "room:parlor", "room:shop")
@@ -58,7 +59,7 @@ FRESH_INITIAL_DIGEST = digest(FRESH_INITIAL)
 def _version_initial(rules: str) -> dict:
     if rules == RULES:
         return INITIAL
-    if rules == FRESH_RULES:
+    if rules in (FRESH_RULES, STOCK_RULES):
         return FRESH_INITIAL
     raise Conflict("Unknown household rhythm rules")
 
@@ -85,6 +86,63 @@ def _set(db, key, value):
 def _current(db, table: str):
     return {k: json.loads(v) for k, v in db.execute(
         f"SELECT key,value FROM {table}")}
+
+
+def _stock_access(home_state: dict, station: str) -> dict:
+    """Engineer-only source-bound food affordances, never an omniscient frame.
+
+    The finite quantity already belongs to DailyRhythm. These actual durable
+    objects determine whether those portions can be used *here*.
+    """
+    from .home_life import START_ITEMS
+    room = STATIONS[station][0]
+    if room != "room:kitchen":
+        return {"meal": False, "tea": False}
+    items, containers = home_state["items"], home_state["containers"]
+
+    def available(item_id):
+        if item_id not in START_ITEMS:
+            raise Conflict("Unknown provision fixture")
+        item = items[item_id]
+        cid = item["container"]
+        if cid is None:
+            return item["held_by"] == "research-subject:pretorius"
+        container = containers[cid]
+        return (container["room"] == room and container["open"])
+
+    return {
+        "meal": available("food:bread"),
+        "tea": all(available(item) for item in (
+            "food:tea", "tableware:teapot", "tableware:cup")),
+    }
+
+
+def _home_snapshots(db) -> dict:
+    """Rebuild source-backed domestic states at each historical revision.
+
+    HomeLife.verify has already authenticated the home chain; recomputing
+    states here prevents current item positions from leaking into past action
+    replays. No caller-supplied affordance bits are trusted.
+    """
+    from .home_life import _apply as apply_home
+    meta = _current(db, "domestic_meta")
+    before = copy.deepcopy(meta["genesis"])
+    states = {0: before}
+    for n, encoded in db.execute(
+            "SELECT revision,envelope FROM domestic_events ORDER BY revision"):
+        record = json.loads(encoded)
+        if (n != len(states) or record["before_digest"] != digest(before)):
+            raise Conflict("Invalid historical domestic state for stock access")
+        after, subject = apply_home(before, record["op"], record["args"],
+                                    record["station"])
+        if (record["after_digest"] != digest(after) or
+                record["subject"] != subject):
+            raise Conflict("Domestic stock history does not replay")
+        states[n] = after
+        before = after
+    if before != meta["state"]:
+        raise Conflict("Domestic stock snapshot disagrees with verified live home")
+    return states
 
 
 def _cursor(db, table: str, rev: int):
@@ -210,7 +268,8 @@ def _perceive(s: dict, station: str) -> str:
     return sentence
 
 
-def transition(state: dict, op: str, args: dict, station: str):
+def transition(state: dict, op: str, args: dict, station: str, *,
+               stock_access: dict | None = None):
     """Pure replayable transition: no raw numbers are returned to the subject."""
     if op not in OPERATIONS or station not in STATIONS or not isinstance(args, dict):
         raise LabError("Unsupported daily-life action or bodily station")
@@ -267,6 +326,8 @@ def transition(state: dict, op: str, args: dict, station: str):
             raise Conflict("The kitchen requires cleaning before food preparation")
         if new["meal_ready"]:
             raise Conflict("A meal is already prepared")
+        if stock_access is not None and not stock_access["meal"]:
+            raise Conflict("The real food provisions are not within reach")
         for item in ("water", "fuel", "rations"):
             if new["supplies"][item] == 0:
                 raise Conflict("Insufficient real provisions for a meal")
@@ -302,6 +363,8 @@ def transition(state: dict, op: str, args: dict, station: str):
             raise LabError("Tea must be made in the kitchen")
         if not _can_see(new, room) or new["fatigue"] >= 9:
             raise Conflict("Too dark or exhausted to brew tea")
+        if stock_access is not None and not stock_access["tea"]:
+            raise Conflict("I need the actual tea tin, teapot and cup in reach")
         if any(new["supplies"][k] == 0 for k in ("water", "tea", "fuel")):
             raise Conflict("I have run out of what I need for tea")
         for item in ("water", "tea", "fuel"):
@@ -377,11 +440,15 @@ class DailyRhythm:
         self.home = HomeLife(habitat)
 
     def initialize(self, *, initial_state: dict | None = None, parent=None,
-                   perishable_meals: bool = False):
+                   perishable_meals: bool = False,
+                   physical_provisions: bool = False):
         self.home.verify()
-        if type(perishable_meals) is not bool:
-            raise LabError("Meal freshness selection must be a boolean")
-        selected_rules = FRESH_RULES if perishable_meals else RULES
+        if type(perishable_meals) is not bool or type(physical_provisions) is not bool:
+            raise LabError("Rule selection must use booleans")
+        if physical_provisions and not perishable_meals:
+            raise LabError("Physical provisions build on the perishable-meal profile")
+        selected_rules = (STOCK_RULES if physical_provisions else
+                          FRESH_RULES if perishable_meals else RULES)
         seed = copy.deepcopy(initial_state if initial_state is not None
                              else _version_initial(selected_rules))
         _validate(seed)
@@ -413,12 +480,14 @@ class DailyRhythm:
                 }
                 for k, value in vals.items():
                     _set(db, k, value)
-            elif (old["rules"] not in (RULES, FRESH_RULES) or
+            elif (old["rules"] not in (RULES, FRESH_RULES, STOCK_RULES) or
                   (old["lab_id"], old["world_epoch"]) !=
                   (host["lab_id"], host["world_epoch"])):
                 raise Conflict("Daily-life state is not from the current Laboratory")
             elif initial_state is not None or parent is not None or (
-                    perishable_meals and old["rules"] != FRESH_RULES):
+                    (physical_provisions and old["rules"] != STOCK_RULES) or
+                    (perishable_meals and not physical_provisions and
+                     old["rules"] not in (FRESH_RULES, STOCK_RULES))):
                 raise Conflict("An inhabited day-to-day world cannot change its rule profile")
         return self.verify()
 
@@ -430,7 +499,7 @@ class DailyRhythm:
             if db.execute("SELECT name FROM sqlite_master WHERE name='rhythm_meta'").fetchone() is None:
                 raise LabError("Daily-life addon has not been initialized")
             m = _metadata(db)
-            if (m["rules"] not in (RULES, FRESH_RULES) or
+            if (m["rules"] not in (RULES, FRESH_RULES, STOCK_RULES) or
                     (m["lab_id"], m["world_epoch"], m["home_id"]) !=
                     (world["lab_id"], world["world_epoch"], world["home_id"])):
                 raise Conflict("Daily life uses the wrong authority")
@@ -449,6 +518,7 @@ class DailyRhythm:
                     m["body_at_install"] > bodyproof["revision"]):
                 raise Conflict("Daily-life origin cannot postdate its current world")
             prev, rev = GENESIS_HASH, 0
+            home_states = _home_snapshots(db) if m["rules"] == STOCK_RULES else None
             last_body, last_home = m["body_at_install"], m["home_at_install"]
             for n, event_id, encoded, prior, h in db.execute(
                 "SELECT revision,event_id,envelope,prev_hash,event_hash "
@@ -472,7 +542,10 @@ class DailyRhythm:
                 station = _pose(db, br, m["initial_station"])
                 if e["station"] != station or e["before_digest"] != digest(seed):
                     raise Conflict("Experience is not supported by the recorded pose/state")
-                result, subjective = transition(seed, e["op"], e["args"], station)
+                access = (_stock_access(home_states[hr], station)
+                          if home_states is not None else None)
+                result, subjective = transition(
+                    seed, e["op"], e["args"], station, stock_access=access)
                 if (e["subject"] != subjective or
                         e["after_digest"] != digest(result)):
                     raise Conflict("Daily-life consequences or first-person result altered")
@@ -504,7 +577,10 @@ class DailyRhythm:
                 if e["op"] != op or e["args"] != args:
                     raise Conflict("Event ID cannot be reused for a different action")
                 return copy.deepcopy(e["subject"])
-            after, subjective = transition(m["state"], op, args, body["station"])
+            access = (_stock_access(home["state"], body["station"])
+                      if m["rules"] == STOCK_RULES else None)
+            after, subjective = transition(
+                m["state"], op, args, body["station"], stock_access=access)
             event = {
                 "event_id": event_id, "revision": m["revision"] + 1,
                 "op": op, "args": args,
@@ -549,4 +625,5 @@ class DailyRhythm:
                       "status": "cloned_state_not_subject_experience"}
         DailyRhythm(clone).initialize(
             initial_state=copied, parent=parent,
-            perishable_meals="meal_prepared_minute" in copied)
+            perishable_meals="meal_prepared_minute" in copied,
+            physical_provisions=m["rules"] == STOCK_RULES)
