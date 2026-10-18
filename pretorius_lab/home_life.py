@@ -459,6 +459,26 @@ class HomeLife:
                 from .rhythm_gate import require as require_daily_conditions
                 require_daily_conditions(db, bod["station"],
                                          "home_inspect" if op == "look" else "home_handle")
+            if op in {"take", "put"}:
+                from .material_objects import exists as botanical_exists, ACTOR
+                prior = db.execute("SELECT 1 FROM domestic_events WHERE event_id=?",
+                                   (event_id,)).fetchone()
+                if botanical_exists(db) and not prior:
+                    row = db.execute("SELECT value FROM botanical_meta WHERE key='state'").fetchone()
+                    if row is None:
+                        raise Conflict("Incomplete object material authority")
+                    physical = json.loads(row[0])["objects"]
+                    if op == "take" and any(
+                            obj["parent"] == ACTOR for obj in physical.values()):
+                        raise Conflict("Hands occupied with a botanical object")
+                    if op == "put":
+                        cid = args.get("container")
+                        if cid in m["state"]["containers"]:
+                            used = sum(obj["parent"] == cid for obj in physical.values())
+                            used += sum(obj["container"] == cid
+                                        for obj in m["state"]["items"].values())
+                            if used >= m["state"]["containers"][cid]["capacity"]:
+                                raise Conflict("Container has no physical capacity")
             return self._append(db, m, op, args, bod["station"],
                                 bod["revision"], bod["head_hash"], event_id)
 
