@@ -1,0 +1,28 @@
+name: Unified Real Home Actions And Day-Across Continuity
+on:
+  push:
+    branches:
+      - experiment/lab-unified-action-continuity-20261018
+  pull_request:
+    paths:
+      - pretorius_lab/living_action_port.py
+      - tests/test_living_action_port.py
+      - .github/workflows/unified-home-actions.yml
+  workflow_dispatch:
+jobs:
+  unified-world-action-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11','3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Persist original bookmark and furniture after sleep/restart
+        run: python -m unittest discover -s tests -p test_living_action_port.py -v
+      - name: Full Laboratory physical + paper + botanical + room regression
+        run: python -m unittest discover -s tests -v
