@@ -120,6 +120,27 @@ class PhysicalProvisionTests(unittest.TestCase):
         self.assertEqual(reopened.verify(), original)
         self.assertEqual(reopened.audit_state()["supplies"]["tea"], 2)
 
+    def test_legacy_direct_rhythm_api_cannot_bypass_physical_absence(self):
+        _, life, subject = self.world("direct_api")
+        self.remove_bread(subject, "direct-gone")
+        before = life.audit_state()
+        with self.assertRaises(Conflict):
+            life.act("prepare_meal", event_id="direct-bypass-attempt")
+        self.assertEqual(life.audit_state(), before)
+        self.assertTrue(life.verify()["verified"])
+
+    def test_visible_tea_tin_does_not_replenish_exhausted_portions(self):
+        _, life, subject = self.world("exhausted_tea")
+        subject.act("open", event_id="cupboard-real", container="cupboard:kitchen")
+        for n in range(3):
+            subject.act("brew_tea", event_id=f"tea-cup-{n}")
+        before = life.audit_state()
+        self.assertEqual(before["supplies"]["tea"], 0)
+        with self.assertRaises(Conflict):
+            subject.act("brew_tea", event_id="no-hidden-refill")
+        self.assertEqual(life.audit_state(), before)
+        self.assertTrue(life.verify()["verified"])
+
     def test_v2_cannot_be_migrated_in_place_to_v3(self):
         world, life, _ = self.world("v2_no_upgrade", v3=False)
         with self.assertRaises(Conflict):
