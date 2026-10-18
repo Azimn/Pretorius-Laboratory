@@ -22,6 +22,11 @@ def main(argv=None) -> int:
             subparser.add_argument("--perishable-meals", action="store_true")
             subparser.add_argument("--physical-provisions", action="store_true")
             subparser.add_argument("--visible-portions", action="store_true")
+            subparser.add_argument("--physical-paper", action="store_true")
+    paper = sub.add_parser("write_paper")
+    paper.add_argument("text", type=str)
+    read = sub.add_parser("read_paper")
+    read.add_argument("page", type=int)
     advance = sub.add_parser("advance")
     advance.add_argument("minutes", type=int)
     args = parser.parse_args(argv)
@@ -30,13 +35,18 @@ def main(argv=None) -> int:
         if args.op == "init":
             result = life.initialize(perishable_meals=args.perishable_meals,
                                      physical_provisions=args.physical_provisions,
-                                     visible_portions=args.visible_portions)
+                                     visible_portions=args.visible_portions,
+                                     physical_paper=args.physical_paper)
         elif args.op == "verify":
             result = life.verify()
         elif args.op == "audit":
             result = life.audit_state()  # engineer-only, never subject access
         elif args.op == "advance":
             result = life.advance(args.minutes)
+        elif args.op == "write_paper":
+            result = life.act("write_paper", text=args.text)
+        elif args.op == "read_paper":
+            result = life.act("read_paper", page=args.page)
         else:
             result = life.act(args.op)
     except (LabError, Conflict, FileNotFoundError, ValueError) as exc:
