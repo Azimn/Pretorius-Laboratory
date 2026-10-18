@@ -21,6 +21,9 @@ RULES = "pretorius-daily-rhythm/1"
 FRESH_RULES = "pretorius-daily-rhythm/2-perishable-meals"
 STOCK_RULES = "pretorius-daily-rhythm/3-physical-provision-access"
 VISIBLE_RULES = "pretorius-daily-rhythm/4-visible-provision-portions"
+PAPER_RULES = "pretorius-daily-rhythm/5-physical-authored-paper"
+MAX_PAPER_PAGES = 40
+MAX_PAPER_CHARS = 240
 MEAL_FRESH_MINUTES = 360  # deliberately coarse six-hour prepared-food window
 LAMPS = ("room:sanctum", "room:experiment", "room:hall", "room:kitchen",
          "room:bedroom", "room:parlor", "room:shop")
@@ -55,11 +58,15 @@ INITIAL = initial_state()
 INITIAL_DIGEST = digest(INITIAL)
 FRESH_INITIAL = {**initial_state(), "meal_prepared_minute": None}
 FRESH_INITIAL_DIGEST = digest(FRESH_INITIAL)
+PAPER_INITIAL = {**initial_state(), "meal_prepared_minute": None, "paper_marks": []}
+PAPER_INITIAL_DIGEST = digest(PAPER_INITIAL)
 
 
 def _version_initial(rules: str) -> dict:
     if rules == RULES:
         return INITIAL
+    if rules == PAPER_RULES:
+        return PAPER_INITIAL
     if rules in (FRESH_RULES, STOCK_RULES, VISIBLE_RULES):
         return FRESH_INITIAL
     raise Conflict("Unknown household rhythm rules")
@@ -71,7 +78,7 @@ def _meal_stale(s: dict) -> bool:
         s["minute"] - prepared >= MEAL_FRESH_MINUTES)
 OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
-              "repair", "discard_meal"}
+              "repair", "discard_meal", "write_paper", "read_paper"}
 
 
 def _metadata(db):
@@ -116,6 +123,26 @@ def _stock_access(home_state: dict, station: str) -> dict:
         "tea": all(available(item) for item in (
             "food:tea", "tableware:teapot", "tableware:cup")),
     }
+
+
+def _writing_access(home_state: dict, station: str) -> dict:
+    """Actual writable/readable paper and ink, wherever the subject may be.
+
+    Reuses authenticated HomeLife object custody and furniture openness;
+    no abstract offstage writing ability or subject-supplied availability.
+    """
+    room = STATIONS[station][0]
+    items, furniture = home_state["items"], home_state["containers"]
+
+    def reachable(item_id):
+        obj = items[item_id]
+        if obj["container"] is None:
+            return obj["held_by"] == "research-subject:pretorius"
+        target = furniture[obj["container"]]
+        return target["room"] == room and target["open"]
+
+    return {"paper": reachable("stationery:paper"),
+            "ink": reachable("stationery:ink")}
 
 
 def _home_snapshots(db) -> dict:
@@ -167,7 +194,7 @@ def _pose(db, body_revision: int, initial_station: str):
 
 
 def _validate(state: dict) -> None:
-    if set(state) not in (set(INITIAL), set(FRESH_INITIAL)):
+    if set(state) not in (set(INITIAL), set(FRESH_INITIAL), set(PAPER_INITIAL)):
         raise Conflict("Daily state schema has drifted")
     if type(state["minute"]) is not int or state["minute"] < INITIAL["minute"]:
         raise Conflict("Invalid simulated time")
@@ -201,6 +228,14 @@ def _validate(state: dict) -> None:
                 raise Conflict("Prepared food has no valid preparation time")
         elif prepared is not None:
             raise Conflict("An absent meal cannot retain a preparation time")
+    if "paper_marks" in state:
+        marks = state["paper_marks"]
+        if (type(marks) is not list or len(marks) > MAX_PAPER_PAGES or
+                any(type(note) is not str or not note.strip() or
+                    len(note) > MAX_PAPER_CHARS or
+                    any(ord(ch) < 32 and ch != "\n" for ch in note)
+                    for note in marks)):
+            raise Conflict("Physically written pages are malformed")
     if any(type(state[k]) is not int or state[k] < 0
            for k in ("experiments", "repairs", "chores")):
         raise Conflict("Invalid work counters")
@@ -270,7 +305,8 @@ def _perceive(s: dict, station: str) -> str:
 
 
 def transition(state: dict, op: str, args: dict, station: str, *,
-               stock_access: dict | None = None):
+               stock_access: dict | None = None,
+               writing_access: dict | None = None):
     """Pure replayable transition: no raw numbers are returned to the subject."""
     if op not in OPERATIONS or station not in STATIONS or not isinstance(args, dict):
         raise LabError("Unsupported daily-life action or bodily station")
@@ -359,6 +395,45 @@ def transition(state: dict, op: str, args: dict, station: str, *,
         new["meal_prepared_minute"] = None
         _pass_time(new, 10)
         inner = "I throw out the meal I left too long. The provisions are wasted."
+    elif op == "write_paper":
+        if "paper_marks" not in new or writing_access is None:
+            raise LabError("Writing on physical paper is unavailable under these world rules")
+        entry = args.get("text")
+        if (set(args) != {"text"} or type(entry) is not str or
+                not entry.strip() or len(entry) > MAX_PAPER_CHARS or
+                any(ord(ch) < 32 and ch != "\n" for ch in entry)):
+            raise LabError("Write one bounded, nonempty authored paper entry")
+        if not writing_access["paper"] or not writing_access["ink"]:
+            raise Conflict("I must actually reach my writing paper and ink")
+        if len(new["paper_marks"]) >= MAX_PAPER_PAGES:
+            raise Conflict("I have no blank paper left in this stack")
+        if new["fatigue"] >= 9 or not _can_see(new, room):
+            raise Conflict("I cannot write properly while exhausted or in darkness")
+        projected = copy.deepcopy(new)
+        _pass_time(projected, 5)
+        if not _can_see(projected, room):
+            raise Conflict("There is not enough light left to finish writing")
+        new["paper_marks"].append(entry)
+        _pass_time(new, 5)
+        inner = "I write on my paper: " + entry
+    elif op == "read_paper":
+        if "paper_marks" not in new or writing_access is None:
+            raise LabError("Written physical paper is unavailable under these world rules")
+        page = args.get("page")
+        if set(args) != {"page"} or type(page) is not int or page < 1:
+            raise LabError("Specify a positive written page")
+        if not writing_access["paper"]:
+            raise Conflict("I cannot reach the paper I want to read")
+        if page > len(new["paper_marks"]):
+            raise Conflict("There are no written words on that page yet")
+        if new["fatigue"] >= 9 or not _can_see(new, room):
+            raise Conflict("I cannot read the paper in these conditions")
+        projected = copy.deepcopy(new)
+        _pass_time(projected, 2)
+        if not _can_see(projected, room):
+            raise Conflict("There is not enough light left to finish reading")
+        _pass_time(new, 2)
+        inner = "I read what is written on my paper: " + new["paper_marks"][page - 1]
     elif op == "brew_tea":
         if args or station != STATION_KITCHEN:
             raise LabError("Tea must be made in the kitchen")
@@ -443,17 +518,22 @@ class DailyRhythm:
     def initialize(self, *, initial_state: dict | None = None, parent=None,
                    perishable_meals: bool = False,
                    physical_provisions: bool = False,
-                   visible_portions: bool = False):
+                   visible_portions: bool = False,
+                   physical_paper: bool = False):
         self.home.verify()
         if (type(perishable_meals) is not bool or
                 type(physical_provisions) is not bool or
-                type(visible_portions) is not bool):
+                type(visible_portions) is not bool or
+                type(physical_paper) is not bool):
             raise LabError("Rule selection must use booleans")
         if physical_provisions and not perishable_meals:
             raise LabError("Physical provisions build on the perishable-meal profile")
         if visible_portions and not physical_provisions:
             raise LabError("Visible portions require real physical provision access")
-        selected_rules = (VISIBLE_RULES if visible_portions else
+        if physical_paper and not visible_portions:
+            raise LabError("Writable physical paper builds on the active living-home profile")
+        selected_rules = (PAPER_RULES if physical_paper else
+                          VISIBLE_RULES if visible_portions else
                           STOCK_RULES if physical_provisions else
                           FRESH_RULES if perishable_meals else RULES)
         seed = copy.deepcopy(initial_state if initial_state is not None
@@ -487,12 +567,14 @@ class DailyRhythm:
                 }
                 for k, value in vals.items():
                     _set(db, k, value)
-            elif (old["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES) or
+            elif (old["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES, PAPER_RULES) or
                   (old["lab_id"], old["world_epoch"]) !=
                   (host["lab_id"], host["world_epoch"])):
                 raise Conflict("Daily-life state is not from the current Laboratory")
             elif initial_state is not None or parent is not None or (
-                    (visible_portions and old["rules"] != VISIBLE_RULES) or
+                    (physical_paper and old["rules"] != PAPER_RULES) or
+                    (visible_portions and not physical_paper and
+                     old["rules"] not in (VISIBLE_RULES, PAPER_RULES)) or
                     (physical_provisions and not visible_portions and
                      old["rules"] not in (STOCK_RULES, VISIBLE_RULES)) or
                     (perishable_meals and not physical_provisions and
@@ -508,13 +590,14 @@ class DailyRhythm:
             if db.execute("SELECT name FROM sqlite_master WHERE name='rhythm_meta'").fetchone() is None:
                 raise LabError("Daily-life addon has not been initialized")
             m = _metadata(db)
-            if (m["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES) or
+            if (m["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES, PAPER_RULES) or
                     (m["lab_id"], m["world_epoch"], m["home_id"]) !=
                     (world["lab_id"], world["world_epoch"], world["home_id"])):
                 raise Conflict("Daily life uses the wrong authority")
             if digest(m["genesis"]) != m["genesis_digest"]:
                 raise Conflict("Daily-life genesis modified without source")
-            expected_digest = (INITIAL_DIGEST if m["rules"] == RULES
+            expected_digest = (INITIAL_DIGEST if m["rules"] == RULES else
+                               PAPER_INITIAL_DIGEST if m["rules"] == PAPER_RULES
                                else FRESH_INITIAL_DIGEST)
             if m["parent"] is None and m["genesis_digest"] != expected_digest:
                 raise Conflict("Changed canonical daily-life genesis")
@@ -527,8 +610,8 @@ class DailyRhythm:
                     m["body_at_install"] > bodyproof["revision"]):
                 raise Conflict("Daily-life origin cannot postdate its current world")
             prev, rev = GENESIS_HASH, 0
-            home_states = (_home_snapshots(db) if m["rules"] in (STOCK_RULES, VISIBLE_RULES)
-                           else None)
+            home_states = (_home_snapshots(db) if m["rules"] in (
+                STOCK_RULES, VISIBLE_RULES, PAPER_RULES) else None)
             last_body, last_home = m["body_at_install"], m["home_at_install"]
             for n, event_id, encoded, prior, h in db.execute(
                 "SELECT revision,event_id,envelope,prev_hash,event_hash "
@@ -554,8 +637,11 @@ class DailyRhythm:
                     raise Conflict("Experience is not supported by the recorded pose/state")
                 access = (_stock_access(home_states[hr], station)
                           if home_states is not None else None)
+                paper = (_writing_access(home_states[hr], station)
+                         if m["rules"] == PAPER_RULES else None)
                 result, subjective = transition(
-                    seed, e["op"], e["args"], station, stock_access=access)
+                    seed, e["op"], e["args"], station,
+                    stock_access=access, writing_access=paper)
                 if (e["subject"] != subjective or
                         e["after_digest"] != digest(result)):
                     raise Conflict("Daily-life consequences or first-person result altered")
@@ -588,9 +674,13 @@ class DailyRhythm:
                     raise Conflict("Event ID cannot be reused for a different action")
                 return copy.deepcopy(e["subject"])
             access = (_stock_access(home["state"], body["station"])
-                      if m["rules"] in (STOCK_RULES, VISIBLE_RULES) else None)
+                      if m["rules"] in (STOCK_RULES, VISIBLE_RULES, PAPER_RULES)
+                      else None)
+            paper = (_writing_access(home["state"], body["station"])
+                     if m["rules"] == PAPER_RULES else None)
             after, subjective = transition(
-                m["state"], op, args, body["station"], stock_access=access)
+                m["state"], op, args, body["station"],
+                stock_access=access, writing_access=paper)
             event = {
                 "event_id": event_id, "revision": m["revision"] + 1,
                 "op": op, "args": args,
@@ -636,5 +726,6 @@ class DailyRhythm:
         DailyRhythm(clone).initialize(
             initial_state=copied, parent=parent,
             perishable_meals="meal_prepared_minute" in copied,
-            physical_provisions=m["rules"] in (STOCK_RULES, VISIBLE_RULES),
-            visible_portions=m["rules"] == VISIBLE_RULES)
+            physical_provisions=m["rules"] in (STOCK_RULES, VISIBLE_RULES, PAPER_RULES),
+            visible_portions=m["rules"] in (VISIBLE_RULES, PAPER_RULES),
+            physical_paper=m["rules"] == PAPER_RULES)
