@@ -177,7 +177,11 @@ class LivingActionPort:
         # No new brain/prospective memory data: readable opportunities are
         # merely another verified part of the already presented home.
         extra = " ".join(entry["description"] for entry in books)
-        text = base["subject_frame"]["inner"]
+        # Existing SubjectPort is the sole truthful local scene view.
+        # A list of possibilities alone cannot tell the Doctor WHERE the
+        # chair actually ended up yesterday, so include lived surroundings.
+        seen = self.home.subject.observe()
+        text = seen["inner"] + " " + base["subject_frame"]["inner"]
         if extra:
             text += " " + extra
         frame = {"inner": text, "spoken_aloud": None}
