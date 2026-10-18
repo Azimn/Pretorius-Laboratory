@@ -7,9 +7,10 @@ memories. Numeric environmental state stays below this boundary.
 """
 from __future__ import annotations
 
+import json
 import re
 
-from .daily_rhythm import DailyRhythm
+from .daily_rhythm import DailyRhythm, VISIBLE_RULES
 from .embodied_access import EmbodiedAccess
 from .habitat_v2 import SpatialHabitat
 from .home_life import HomeLife
@@ -67,8 +68,26 @@ class SubjectPort:
         with self.habitat._open() as db:
             bright = lit(db, station)
         if bright:
-            household = self.home.look()
-            parts.append(household["inner"])
+            # v4: change only the rendering of source-backed, visible objects.
+            # Both authoritative state owners remain unchanged.
+            with self.habitat._open() as db:
+                row = db.execute(
+                    "SELECT value FROM rhythm_meta WHERE key='rules'").fetchone()
+                if row is None:
+                    raise Conflict("No current rhythm authority")
+                visual_portions = json.loads(row[0]) == VISIBLE_RULES
+            if visual_portions:
+                from .home_life import _look as home_description
+                from .provision_appearance import provision_names
+                self.home.verify()
+                supplies = self.rhythm.audit_state()  # trusted host only
+                physical = self.home.audit_state()  # trusted host only
+                parts.append(home_description(
+                    physical, station,
+                    provision_names=provision_names(supplies)))
+            else:
+                household = self.home.look()
+                parts.append(household["inner"])
             # This local observation includes only nearby physical objects,
             # not offstage items or hidden numbers.
             scene = self.embodied.look()["offered_payload"]
