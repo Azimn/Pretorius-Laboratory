@@ -115,6 +115,10 @@ class LivingBotanicalObjectTests(unittest.TestCase):
         label = self.finish_and_label()
         self.do("material:take", "lift-sheet", object="sheet:herbarium-001")
         self.travel(["station:hall"], "sheet-to-hall")
+        # This interior passage has no daylight window. The real lamp is
+        # required before the Doctor can identify or open the trunk.
+        self.assertIsNone(self.find("open", container="trunk:hall"))
+        self.do("light", "light-hall", )
         self.do("open", "open-trunk", container="trunk:hall")
         self.do("material:put", "store-herbarium",
                 object="sheet:herbarium-001", container="trunk:hall")
