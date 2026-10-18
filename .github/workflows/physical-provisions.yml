@@ -1,0 +1,33 @@
+name: Physical pantry action and multi-day fidelity
+on:
+  push:
+    branches:
+      - experiment/lab-domestic-supply-binding-20261017
+  pull_request:
+    paths:
+      - pretorius_lab/daily_rhythm.py
+      - pretorius_lab/rhythm_gate.py
+      - pretorius_lab/daily_cli.py
+      - tests/test_physical_provisions.py
+      - tools/physical_provision_comparison.py
+      - .github/workflows/physical-provisions.yml
+  workflow_dispatch:
+jobs:
+  physical-provisions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Verify real object movement and source-verified food availability
+        run: python -m unittest discover -s tests -p 'test_physical_provisions.py' -v
+      - name: Run two-day equal-stock physical control comparison
+        run: python -m tools.physical_provision_comparison
+      - name: Run all Laboratory regression and historical compatibility tests
+        run: python -m unittest discover -s tests -v
