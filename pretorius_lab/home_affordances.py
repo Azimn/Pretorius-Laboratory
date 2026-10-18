@@ -64,10 +64,15 @@ class HomeAffordances:
         state = self.rhythm.audit_state()
         material = self.home.audit_state()
         station = self.body.verify()["station"]
+        from .material_objects import MaterialObjects, exists as materials_exist
+        with self.subject.habitat._open() as db:
+            has_materials = materials_exist(db)
+        new_objects = (MaterialObjects(self.subject.habitat).audit_state()
+                       if has_materials else None)
         stamp = digest({
             "world_epoch": self.subject.verify()["world_epoch"],
             "rhythm": state, "material": material, "station": station,
-            "rules": rules,
+            "rules": rules, "dynamic_objects": new_objects,
         })
         return state, material, station, stamp
 
@@ -168,6 +173,16 @@ class HomeAffordances:
             add("read_paper", {"page": page},
                 "I could reread page " + str(page) + " of my paper.")
 
+        # New objects use a verified material reducer, not a separate world.
+        from .material_objects import MaterialObjects, exists as materials_exist
+        with self.subject.habitat._open() as db:
+            has_materials = materials_exist(db)
+        if has_materials:
+            botanical = MaterialObjects(self.subject.habitat)
+            for possibility in botanical.available():
+                add("material:" + possibility["op"], possibility["args"],
+                    "I could " + possibility["description"] + ".",
+                    free_text=possibility["free_text"])
         # Do not quietly grant offstage objects, knowledge or obligations.
         frame = {
             "inner": ("I am in " + ROOM_LABELS[room] +
@@ -199,5 +214,6 @@ class HomeAffordances:
             arguments["text"] = text
         elif text is not None:
             raise LabError("No invented extra author text for this world action")
-        # No independent reducer, side effect, stock or memory source.
+        # All material changes use the single underlying Laboratory SQLite
+        # world. The subject itself never receives host state/command metadata.
         return self.subject.act(offer["command"], event_id=event_id, **arguments)
