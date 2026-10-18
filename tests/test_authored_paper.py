@@ -124,6 +124,30 @@ class AuthoredPaperTests(unittest.TestCase):
         self.assertEqual(life.audit_state(), old)
         self.assertTrue(life.verify()["verified"])
 
+    def test_sunset_and_lamp_are_real_visual_preconditions(self):
+        _, life, subject = self.home("near-night")
+        life.advance(240, event_id="morning-to-eleven")
+        life.advance(240, event_id="afternoon")
+        life.advance(170, event_id="late-afternoon")
+        life.act("tick", event_id="minute-1755", minutes=5)
+        before = life.audit_state()
+        self.assertEqual(before["minute"] % 1440, 17*60+55)
+        with self.assertRaises(Conflict):
+            subject.act("write_paper", event_id="too-late-to-write",
+                        text="Not yet actually written")
+        self.assertEqual(life.audit_state(), before)
+        subject.act("light", event_id="lamp-lit")
+        subject.act("write_paper", event_id="lamp-enabled-writing",
+                    text="The lamp lets me finish this page.")
+        self.assertEqual(life.audit_state()["minute"] % 1440, 18*60)
+        subject.act("extinguish", event_id="lamp-out")
+        with self.assertRaises(Conflict):
+            subject.act("read_paper", event_id="no-night-reading", page=1)
+        subject.act("light", event_id="lamp-again")
+        self.assertIn("lamp lets me finish",
+                      subject.act("read_paper", event_id="read-lit-page", page=1)["inner"])
+        self.assertTrue(life.verify()["verified"])
+
     def test_text_bounds_and_missing_pages_cost_no_time(self):
         _, life, subject = self.home("rejected")
         before = life.audit_state()
