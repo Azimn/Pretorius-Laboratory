@@ -31,9 +31,9 @@ class UnifiedRealHomeTest(unittest.TestCase):
         self.books.install(
             "book:007", edition_id="source-fixture-1",
             title="Pretorius's Research Volume", author="Test fixture",
-            pages=("The little copper instrument lay on the workbench.",
+            pages=["The little copper instrument lay on the workbench.",
                    "I shall return to this observation tomorrow.",
-                   "The apparatus remained arranged as before."),
+                   "The apparatus remained arranged as before."],
             source_class="original_fixture",
             source_reference="tests: real source text, not Pretorius autobiography",
         )
