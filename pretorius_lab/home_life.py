@@ -149,7 +149,10 @@ def _room(station):
     return STATIONS[station][0]
 
 
-def _look(state, station):
+def _look(state, station, *, provision_names=None):
+    # Optional trusted first-person renderer descriptions. Only the v4
+    # SubjectPort supplies these from verified household/daily source state.
+    # Historical HomeLife 'look' receipts still call the old default.
     room = _room(station)
     containers = [obj for obj in state["containers"].values() if obj["room"] == room]
     pieces = [f"I am in {ROOM_LABELS[room]}."]
@@ -157,12 +160,26 @@ def _look(state, station):
         names = ", ".join(sorted(obj["name"] + (" (closed)" if not obj["open"] else "")
                                  for obj in containers))
         pieces.append(f"I can see {names}.")
-    visible = [obj["name"] for obj in state["items"].values()
-               if obj["container"] in state["containers"]
-               and state["containers"][obj["container"]]["room"] == room
-               and state["containers"][obj["container"]]["open"]]
+    visible = [
+        (provision_names.get(iid, obj["name"]) if provision_names is not None
+         else obj["name"])
+        for iid, obj in state["items"].items()
+        if obj["container"] in state["containers"]
+        and state["containers"][obj["container"]]["room"] == room
+        and state["containers"][obj["container"]]["open"]
+    ]
     if visible:
         pieces.append("I can see " + ", ".join(sorted(visible)) + ".")
+    if provision_names is not None:
+        # Held items are perceivable to their holder regardless of which
+        # kitchen container they originally occupied. Legacy frames unchanged.
+        held = [
+            provision_names.get(iid, obj["name"])
+            for iid, obj in state["items"].items()
+            if obj["held_by"] == "research-subject:pretorius"
+        ]
+        if held:
+            pieces.append("I am holding " + ", ".join(sorted(held)) + ".")
     if room == "room:shop":
         pieces.append("The curtain separates this little shop from the house.")
         if not state["shop_open"]:
