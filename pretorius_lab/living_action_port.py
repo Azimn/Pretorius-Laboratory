@@ -236,11 +236,18 @@ class LivingActionPort:
                 args["bookmark_id"] = bookmark_id
             frame = self.home.subject.act("book", event_id=event_id, **args)
         else:
-            frame = self.home.act(offer["offer_id"] if False else
-                                  next(o["offer_id"] for o in
-                                       self.home.discover()["offers"]
-                                       if o["command"] == offer["command"] and
-                                       o["args"] == offer["args"]),
+            # The original home catalog retains the true base capability
+            # token. The outer token is only an additional source guard.
+            base = self.home.discover()
+            original = next(
+                (o for o in base["offers"] if
+                 o["command"] == offer["command"] and
+                 o["args"] == offer["args"] and
+                 o["requires_my_own_words"] ==
+                 offer["requires_my_own_words"]), None)
+            if original is None:
+                raise Conflict("Underlying physical offer disappeared")
+            frame = self.home.act(original["offer_id"],
                                   event_id=event_id, text=text)
         if set(frame) != {"inner", "spoken_aloud"} or not frame["inner"].startswith("I "):
             raise Conflict("World action did not return a first-person experience")
