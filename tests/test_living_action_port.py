@@ -170,7 +170,7 @@ class RealLivingActionPortTests(unittest.TestCase):
         self.assertFalse(any(o["command"] == "book" for o in seen["offers"]))
         first = next(x for x in seen["offers"] if x["command"] == "walk")
         outcome = old.act(first["offer_id"], event_id="old-world-walk")
-        self.assertEqual(outcome["source"]["source_table"], "domestic_events")
+        self.assertEqual(outcome["source"]["source_table"], "embodied_events")
         self.assertTrue(DailyRhythm(separate).verify()["verified"])
 
 
