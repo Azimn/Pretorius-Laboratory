@@ -1,0 +1,34 @@
+name: Persistent authored paper and home object permanence
+on:
+  push:
+    branches:
+      - experiment/lab-persistent-authored-paper-20261017
+  pull_request:
+    paths:
+      - pretorius_lab/daily_rhythm.py
+      - pretorius_lab/rhythm_gate.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/daily_cli.py
+      - tests/test_authored_paper.py
+      - tools/authored_paper_comparison.py
+      - .github/workflows/authored-paper.yml
+  workflow_dispatch:
+jobs:
+  physical-authored-notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Verify authored words and material paper permanence
+        run: python -m unittest discover -s tests -p 'test_authored_paper.py' -v
+      - name: Paired 48-hour material memory experiment
+        run: python -m tools.authored_paper_comparison
+      - name: All historic Laboratory regression tests
+        run: python -m unittest discover -s tests -v
