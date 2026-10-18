@@ -143,6 +143,29 @@ class LivingBotanicalObjectTests(unittest.TestCase):
         self.assertIn(label, child.observe()["inner"])
         self.assertTrue(self.material.verify()["verified"])
 
+    def test_old_and_new_objects_share_one_pair_of_hands_and_actual_drawer_space(self):
+        self.travel(["station:hall", "station:kitchen"], "space-kitchen")
+        self.do("material:take", "lift-material-flower", object="plant:rose-001")
+        # A source legal HomeLife action cannot sneak past the occupied hand.
+        with self.assertRaises(Conflict):
+            HomeLife(self.world).take("food:bread", event_id="two-hands-cheat")
+        self.assertIsNone(self.find("take", item="food:bread"))
+        self.do("material:put", "return-real-flower",
+                object="plant:rose-001", container="table:kitchen")
+        self.do("take", "carry-bread-to-desk", item="food:bread")
+        self.travel(["station:hall", "station:parlor"], "space-parlor")
+        self.do("open", "open-full-writing-desk", container="desk:parlor")
+        # Old desk has paper and ink; the material annex added a press,
+        # blotter and mounting sheet. It is *physically full*, not five
+        # slots in each independent world ledger.
+        self.assertIsNone(self.find(
+            "put", item="food:bread", container="desk:parlor"))
+        with self.assertRaises(Conflict):
+            HomeLife(self.world).put(
+                "food:bread", "desk:parlor", event_id="overfilled-desk")
+        self.assertTrue(self.material.verify()["verified"])
+        self.assertTrue(self.clock.verify()["verified"])
+
     def test_foreign_or_duplicate_authored_actions_cannot_overwrite_history(self):
         self.bring_flower_to_press()
         before = self.material.audit_state()
