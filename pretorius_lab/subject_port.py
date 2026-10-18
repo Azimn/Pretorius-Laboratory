@@ -97,6 +97,13 @@ class SubjectPort:
             carrying = [obj["appearance"] for obj in scene["held_objects"]]
             if carrying:
                 parts.append("I am holding " + ", ".join(sorted(carrying)) + ".")
+        from .material_objects import MaterialObjects, exists as materials_exist
+        with self.habitat._open() as db:
+            material_present = materials_exist(db)
+        if material_present:
+            material_view = MaterialObjects(self.habitat).observe()
+            if material_view["inner"].startswith("I can see "):
+                parts.append(material_view["inner"])
         # A move during multi-ledger inspection is not a coherent one-frame
         # viewpoint. Fail closed; callers can retry from the new position.
         if self._station() != station:
@@ -152,6 +159,11 @@ class SubjectPort:
                 return _frame("I notice time passing. " + outcome["inner"],
                               outcome["spoken_aloud"])
             return _from_experience(outcome)
+        if command.startswith("material:"):
+            from .material_objects import MaterialObjects
+            op = command.partition(":")[2]
+            return _from_experience(MaterialObjects(self.habitat).act(
+                op, event_id=event_id, **args))
         if command == "book":
             required = {"book_id", "operation"}
             if not required <= set(args) or set(args) - (

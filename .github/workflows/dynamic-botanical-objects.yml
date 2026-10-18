@@ -1,0 +1,31 @@
+name: Dynamic Botanical Material and Object Permanence
+on:
+  push:
+    branches:
+      - experiment/lab-dynamic-botanical-objects-20261018
+  pull_request:
+    paths:
+      - pretorius_lab/material_objects.py
+      - pretorius_lab/home_affordances.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/habitat_v2.py
+      - tests/test_material_objects.py
+      - .github/workflows/dynamic-botanical-objects.yml
+  workflow_dispatch:
+jobs:
+  botanical-material:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11','3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: First physical pressed-flower and inherited world tests
+        run: python -m unittest discover -s tests -p test_material_objects.py -v
+      - name: Full original Laboratory + prior living-world regressions
+        run: python -m unittest discover -s tests -v

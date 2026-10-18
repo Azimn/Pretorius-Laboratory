@@ -64,10 +64,15 @@ class HomeAffordances:
         state = self.rhythm.audit_state()
         material = self.home.audit_state()
         station = self.body.verify()["station"]
+        from .material_objects import MaterialObjects, exists as materials_exist
+        with self.subject.habitat._open() as db:
+            has_materials = materials_exist(db)
+        new_objects = (MaterialObjects(self.subject.habitat).audit_state()
+                       if has_materials else None)
         stamp = digest({
             "world_epoch": self.subject.verify()["world_epoch"],
             "rhythm": state, "material": material, "station": station,
-            "rules": rules,
+            "rules": rules, "dynamic_objects": new_objects,
         })
         return state, material, station, stamp
 
@@ -78,6 +83,14 @@ class HomeAffordances:
         visible = _can_see(state, room)
         stock = _stock_access(material, station)
         writing = _writing_access(material, station)
+        from .material_objects import MaterialObjects, exists as botanical_exists, ACTOR
+        with self.subject.habitat._open() as db:
+            botanical_enabled = botanical_exists(db)
+        botanical_state = (MaterialObjects(self.subject.habitat).audit_state()
+                           if botanical_enabled else None)
+        botanical_items = botanical_state["objects"] if botanical_state else {}
+        botanical_in_hand = any(
+            x["parent"] == ACTOR for x in botanical_items.values())
         offers = []
 
         def add(command, args, description, *, free_text=False):
@@ -117,6 +130,8 @@ class HomeAffordances:
                         "I could " + op + " the " + container["name"] + ".")
 
             for iid, item in sorted(material["items"].items()):
+                if botanical_in_hand:
+                    continue
                 try:
                     _apply(material, "take", {"item": iid}, station)
                 except (Conflict, LabError):
@@ -128,6 +143,13 @@ class HomeAffordances:
             for iid, item in sorted(material["items"].items()):
                 if item["held_by"] == "research-subject:pretorius":
                     for cid, container in sorted(material["containers"].items()):
+                        combined = sum(
+                            obj["parent"] == cid for obj in botanical_items.values())
+                        combined += sum(
+                            obj["container"] == cid
+                            for obj in material["items"].values())
+                        if combined >= container["capacity"]:
+                            continue
                         try:
                             _apply(material, "put", {
                                 "item": iid, "container": cid}, station)
@@ -168,6 +190,16 @@ class HomeAffordances:
             add("read_paper", {"page": page},
                 "I could reread page " + str(page) + " of my paper.")
 
+        # New objects use a verified material reducer, not a separate world.
+        from .material_objects import MaterialObjects, exists as materials_exist
+        with self.subject.habitat._open() as db:
+            has_materials = materials_exist(db)
+        if has_materials:
+            botanical = MaterialObjects(self.subject.habitat)
+            for possibility in botanical.available():
+                add("material:" + possibility["op"], possibility["args"],
+                    "I could " + possibility["description"] + ".",
+                    free_text=possibility["free_text"])
         # Do not quietly grant offstage objects, knowledge or obligations.
         frame = {
             "inner": ("I am in " + ROOM_LABELS[room] +
@@ -199,5 +231,6 @@ class HomeAffordances:
             arguments["text"] = text
         elif text is not None:
             raise LabError("No invented extra author text for this world action")
-        # No independent reducer, side effect, stock or memory source.
+        # All material changes use the single underlying Laboratory SQLite
+        # world. The subject itself never receives host state/command metadata.
         return self.subject.act(offer["command"], event_id=event_id, **arguments)
