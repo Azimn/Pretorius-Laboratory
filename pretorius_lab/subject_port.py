@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 
-from .daily_rhythm import DailyRhythm, VISIBLE_RULES
+from .daily_rhythm import DailyRhythm, VISIBLE_RULES, PAPER_RULES
 from .embodied_access import EmbodiedAccess
 from .habitat_v2 import SpatialHabitat
 from .home_life import HomeLife
@@ -75,7 +75,7 @@ class SubjectPort:
                     "SELECT value FROM rhythm_meta WHERE key='rules'").fetchone()
                 if row is None:
                     raise Conflict("No current rhythm authority")
-                visual_portions = json.loads(row[0]) == VISIBLE_RULES
+                visual_portions = json.loads(row[0]) in (VISIBLE_RULES, PAPER_RULES)
             if visual_portions:
                 from .home_life import _look as home_description
                 from .provision_appearance import provision_names
@@ -143,7 +143,7 @@ class SubjectPort:
         if command in {
             "advance", "light", "extinguish", "prepare_meal", "eat",
             "brew_tea", "sleep", "rest", "clean", "experiment", "repair",
-            "discard_meal",
+            "discard_meal", "write_paper", "read_paper",
         }:
             outcome = self.rhythm.act(command, event_id=event_id, **args)
             if command == "advance":
