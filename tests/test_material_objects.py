@@ -75,6 +75,9 @@ class LivingBotanicalObjectTests(unittest.TestCase):
         self.assertEqual(state["plant:rose-001"]["stage"], "pressing")
         self.assertEqual(state["plant:rose-001"]["parent"], "tool:flower-press")
         self.assertNotIn("specimen:0001", state)
+        # The clamped press hides the rose. The world knows the material
+        # condition, but the subject does not see through opaque timber.
+        self.assertNotIn("cut rose", self.material.observe()["inner"])
         self.assertTrue(self.material.verify()["verified"])
 
     def test_real_72_hour_drying_is_not_an_instant_success_flag(self):
