@@ -141,8 +141,10 @@ class LivingActionPort:
                 "head_hash": bookmeta["head_hash"],
                 "physical_revision": world["revision"],
                 "physical_head": world["head_hash"],
-                "body_revision": body["revision"],
-                "body_head": body["head_hash"],
+                # A read-only look is allowed to append a sensory
+                # receipt. That is NOT a moved body, so it must not make
+                # an otherwise valid offer stale.
+                "body_station": body["station"],
                 "custody": custody_stamp,
             }
             return offers, stamp
