@@ -77,11 +77,17 @@ class HomeAffordances:
             has_room_changes = arrangement_exists(db)
         arranged = (HomeArrangements(self.subject.habitat).audit_state()
                     if has_room_changes else None)
+        # A newly installed care policy changes which material actions
+        # genuinely exist. It must invalidate old offers even when none of
+        # the physical stock counts or actor pose changed at installation.
+        from .care_contract import valid as validated_care
+        with self.subject.habitat._open() as db:
+            care = validated_care(db)
         stamp = digest({
             "world_epoch": self.subject.verify()["world_epoch"],
             "rhythm": state, "material": material, "station": station,
             "rules": rules, "dynamic_objects": new_objects,
-            "room_arrangements": arranged,
+            "room_arrangements": arranged, "care_contract": care,
         })
         return state, material, station, stamp
 
