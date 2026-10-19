@@ -23,7 +23,10 @@ STATIONS = {
     "station:hall": ("room:hall", ("station:threshold", "station:kitchen",
                                  "station:bedroom", "station:parlor", "station:shop:private")),
     "station:kitchen": ("room:kitchen", ("station:hall",)),
-    "station:bedroom": ("room:bedroom", ("station:hall",)),
+    "station:bedroom": ("room:bedroom", ("station:hall", "station:washroom")),
+    # An actual separately enclosed domestic washroom; available only with
+    # the opt-in provisioned residency v6, never in older inhabited worlds.
+    "station:washroom": ("room:washroom", ("station:bedroom",)),
     "station:parlor": ("room:parlor", ("station:hall",)),
     "station:shop:private": ("room:shop", ("station:hall", "station:shop:public")),
     "station:shop:public": ("room:shop", ("station:shop:private",)),
@@ -317,6 +320,15 @@ class EmbodiedAccess:
             if kind == "move":
                 if destination not in STATIONS[old][1]:
                     raise LabError("Station is not adjacent; walk through the room")
+                if destination == "station:washroom":
+                    from .daily_rhythm import CARE_RULES
+                    row = db.execute(
+                        "SELECT value FROM rhythm_meta WHERE key='rules'"
+                    ).fetchone() if db.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='rhythm_meta'"
+                    ).fetchone() else None
+                    if row is None or json.loads(row[0]) != CARE_RULES:
+                        raise Conflict("This separate washroom is not installed in the older household")
                 new, payload = destination, None
             else:
                 if destination is not None:
