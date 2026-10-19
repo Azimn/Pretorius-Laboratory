@@ -120,10 +120,20 @@ class ResidencyTrial:
         The external renderer may also propose something NOT on this list.
         """
         discovered = self.actions.discover()
+        # The bare activity catalog is NOT a genuine world observation:
+        # it did not necessarily say where the chair or object actually is.
+        # Use the source-verified first-person SubjectPort observation, which
+        # includes the authentic furniture, materials, rooms and needs.
+        observed = self.actions.subject.observe()
+        if (set(observed) != {"inner", "spoken_aloud"} or
+                not observed["inner"].startswith(("I ", "My "))):
+            raise Conflict("Invalid first-person live-world observation")
+        if self.actions.discover()["world_stamp"] != discovered["world_stamp"]:
+            raise Conflict("World changed between observation and affordances")
         offers = list(dict.fromkeys(x["description"] for x in discovered["offers"]))
         return {
             "protocol": "manual-provisional-character-turn/1",
-            "first_person_world": discovered["subject_frame"]["inner"],
+            "first_person_world": observed["inner"],
             "possible_activities": offers,
             "instructions": (
                 "Act as the provisional voice of Dr. Septimius Pretorius. "
