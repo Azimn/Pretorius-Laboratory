@@ -135,7 +135,9 @@ class FreeRoamPilot:
         if selected["command"] in {"sleep", "advance", "rest"}:
             from .care_safety import assess
             welfare = assess(self.world)
-            if welfare["pause_unattended_time"]:
+            if welfare["pause_unattended_time"] and not (
+                    selected["command"] == "rest"
+                    and welfare["recovery_rest_needed"]):
                 return self._update({
                     **rec, "status": "blocked",
                     "reason": welfare["reason"],
