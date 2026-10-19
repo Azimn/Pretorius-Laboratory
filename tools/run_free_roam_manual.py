@@ -20,7 +20,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+# Support running the included tool from an editable checkout on Windows
+# without installing another package or exposing any APIs.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pretorius_lab.habitat_v2 import SpatialHabitat
 from pretorius_lab.free_roam_pilot import FreeRoamPilot
