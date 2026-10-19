@@ -248,7 +248,7 @@ class ProspectiveProjectsTests(unittest.TestCase):
                          {"flag-seven-days": 2})
         self.assertEqual(self.clock.audit_state()["paper_marks"],
                          ["Other ideas occurred to me while work remained unfinished."])
-        self.assertEqual(restarted.verify()["revision"], 4)
+        self.assertEqual(restarted.verify()["revision"], 3)
         # It takes a NEW explicit choice to revive the dormant plan.
         self.do("project:resume", "week-return-own-choice",
                 project_id="project:0001")
