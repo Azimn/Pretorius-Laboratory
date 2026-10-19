@@ -1,0 +1,35 @@
+name: Safe Domestic Supplies and Washroom
+on:
+  push:
+    branches: [experiment/lab-safe-domestic-supply-loop-20261019]
+  pull_request:
+    paths:
+      - pretorius_lab/daily_rhythm.py
+      - pretorius_lab/embodied_access.py
+      - pretorius_lab/home_life.py
+      - pretorius_lab/home_affordances.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/material_objects.py
+      - pretorius_lab/home_arrangement.py
+      - pretorius_lab/unified_home_actions.py
+      - tools/new_residency_world.py
+      - tests/test_safe_domestic_supply.py
+      - .github/workflows/safe-domestic-supplies.yml
+  workflow_dispatch:
+jobs:
+  no-open-drains:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Actual delivered stores, needs-loop safety and private washroom
+        run: python -m unittest discover -s tests -p test_safe_domestic_supply.py -v
+      - name: All old Laboratory and residency regressions
+        run: python -m unittest discover -s tests -v
