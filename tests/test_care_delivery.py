@@ -84,6 +84,23 @@ class HouseholdCareTests(unittest.TestCase):
                          filled_state["supplies"]["water"] - 1)
         self.assertTrue(self.clock.verify()["verified"])
         self.assertTrue(MaterialObjects(self.world).verify()["verified"])
+        # Extreme pure-reducer envelope: every delivered unit may be empty,
+        # but a verified fixed water source can still be drawn from by action.
+        empty = self.clock.audit_state()
+        empty["supplies"]["water"] = 0
+        empty["thirst"] = 10
+        from pretorius_lab.daily_rhythm import transition
+        restored, words = transition(
+            empty, "draw_water", {}, "station:kitchen",
+            stock_access={"water": True, "tea": True, "meal": True},
+            care_authorized=True)
+        self.assertEqual(restored["supplies"]["water"], 6)
+        self.assertEqual(restored["thirst"], 10)  # no auto-hydration
+        restored, _ = transition(
+            restored, "drink_water", {}, "station:kitchen",
+            stock_access={"water": True, "tea": True, "meal": True},
+            care_authorized=True)
+        self.assertLess(restored["thirst"], 10)
         # An unenrolled old home is not given the new permanent tap.
         old = SpatialHabitat.create(self.path.parent / "no-plumbing.sqlite3")
         HomeLife(old).initialize()
