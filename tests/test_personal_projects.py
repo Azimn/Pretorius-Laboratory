@@ -190,6 +190,72 @@ class ProspectiveProjectsTests(unittest.TestCase):
         self.assertTrue(self.clock.verify()["verified"])
         self.assertTrue(HomeLife(self.lab).verify()["verified"])
 
+    def test_seven_days_real_work_then_read_and_write_without_auto_completion(self):
+        from pretorius_lab.book_library import BookLibrary
+        self.begin()
+        # The bench experiment is real world work with an independently
+        # replayable apparatus consequence, not a sentence in a task list.
+        self.do("walk", "one-week-center", station="station:center")
+        self.do("walk", "one-week-bench", station="station:bench")
+        physical = self.do("experiment", "real-test-work")
+        self.assertEqual(physical["source_table"], "rhythm_events")
+        self.assertEqual(self.clock.audit_state()["experiments"], 1)
+        self.projects.act(
+            "associate", event_id="link-actual-work",
+            project_id="project:0001",
+            source_table=physical["source_table"],
+            source_event_id=physical["source_event_id"],
+            source_event_hash=physical["source_event_hash"])
+        self.do("project:pause", "leave-work-alone", project_id="project:0001")
+        # Read a genuinely installed book and leave a physical page marker.
+        books = BookLibrary(self.lab)
+        books.initialize()
+        books.install(
+            "book:007", edition_id="multi-day-notes-fixture",
+            title="Glass and the Experimental Method", author="Test author",
+            pages=["The apparatus is placed on a cold table.",
+                   "The observation should be repeated on another day."],
+            source_class="original_fixture",
+            source_reference="test fixture, not historic Pretorius canon")
+        self.do("walk", "week-back-center", station="station:center")
+        self.do("walk", "week-to-shelf", station="station:shelf:3")
+        self.do("book", "open-other-reading", book_id="book:007",
+                operation="open")
+        self.do("book", "turn-other-page", book_id="book:007",
+                operation="turn", direction=1)
+        self.do("book", "mark-other-page", book_id="book:007",
+                operation="mark", bookmark_id="flag-seven-days")
+        self.do("book", "close-other-reading", book_id="book:007",
+                operation="close")
+        self.do("walk", "week-center-again", station="station:center")
+        self.do("walk", "week-to-threshold", station="station:threshold")
+        self.visit_parlor()
+        self.do("open", "week-desk-open", container="desk:parlor")
+        self.do("write_paper", "week-private-note",
+                text="Other ideas occurred to me while work remained unfinished.")
+        original_clock = self.clock.audit_state()["minute"]
+        # Forty-two authenticated four-hour advances, not a fake future date.
+        for i in range(42):
+            self.clock.advance(240, event_id=f"seven-days-{i}")
+        restarted = PersonalProjects(SpatialHabitat(self.lab.path))
+        p = restarted.audit_state()["projects"]["project:0001"]
+        self.assertEqual(p["status"], "paused")
+        self.assertEqual(len(p["receipts"]), 1)
+        self.assertEqual(self.clock.audit_state()["minute"] - original_clock,
+                         7 * 24 * 60)
+        self.assertEqual(self.clock.audit_state()["experiments"], 1)
+        self.assertEqual(books.catalog("book:007")["book:007"]["bookmarks"],
+                         {"flag-seven-days": 2})
+        self.assertEqual(self.clock.audit_state()["paper_marks"],
+                         ["Other ideas occurred to me while work remained unfinished."])
+        self.assertEqual(restarted.verify()["revision"], 4)
+        # It takes a NEW explicit choice to revive the dormant plan.
+        self.do("project:resume", "week-return-own-choice",
+                project_id="project:0001")
+        self.assertEqual(restarted.audit_state()["projects"]["project:0001"]["status"],
+                         "active")
+        self.assertTrue(books.verify()["verified"])
+
     def test_old_worlds_without_a_project_ledger_still_work(self):
         other = SpatialHabitat.create(self.root/"old-world.sqlite3")
         HomeLife(other).initialize()
