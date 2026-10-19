@@ -65,6 +65,13 @@ class SubjectPort:
         # darkness. The first-person rhythm description remains accessible.
         first = self.rhythm.look()
         parts = [first["inner"]]
+        from .daily_rhythm import available_delivery_day
+        with self.habitat._open() as db:
+            delivery_day = available_delivery_day(db, station)
+        if delivery_day is not None:
+            parts.append(
+                "I notice the ordinary morning provisions by the hall entry, "
+                "left through my standing arrangement with the local supplier.")
         with self.habitat._open() as db:
             bright = lit(db, station)
         if bright:
