@@ -12,10 +12,11 @@ This design is an interim habitat for Pretorius while Frankenstein Village is of
 
 ## Concrete mechanism
 
-Original v5 rhythm supplies are finite and remain in the real `rhythm_meta` state. New opt-in source-world operations:
+Original v5 rhythm supplies are finite and remain in the real `rhythm_meta` state. Only worlds that deliberately initialize `HouseholdCareContract` have the temporary supplier and adjoining washroom; old inhabited v5 worlds receive no surprise deliveries. A contract records its source, Laboratory epoch and actual installation minute, and is inherited as physical world policy on a deliberate sandbox fork. New source-world operations:
 
 - `drink_water`: in the kitchen with the actual teacup accessible, requires `water>0`, uses one real water portion, advances five authenticated world minutes, and reduces thirst. **Thirst is not hostage to the last tea leaf**.
 - `accept_delivery(day=N)`: from the actual hall, after the genuine dawn of civil day `N>=1`. The subject sees an ordinary parcel from an established local supplier *only when present at the real hall station*. A single source-backed `rhythm_events` receipt tops up existing finite oil, water, fuel, tea and rations, with fixed amounts and 200-unit caps. No supplies appear inside a cupboard merely because midnight passed. An original receipt can be idempotently retried, but a second new receipt for the same day is **denied and independently replay-checked**.
+- `use_washroom`: at the actual bedroom station, a short event traverses the private attached washroom with a fitted water closet and handwashing facility. This is an **opt-in permanent architectural feature of this particular trial house**, not a claim that all Victorian homes had fitted plumbing. It advances the real world clock ten minutes and leaves an authenticated action receipt but **does not introduce a bladder meter**. The municipal sanitary/flush utility is deliberately coarse, separate from delivered drinking-water portions; full plumbing physics and user-movable fixture models are not implemented.
 - Optional `care_safety.assess`: **trusted host only**, sees current needs and supplies and blocks unattended further sleep/rest/fast-forward when hunger is 9+ or thirst 8+. Does not introduce a new subjective distress scale or invisible meter. Rehydration and ordinary kitchen/collection actions remain available.
 
 Delivery contents initially: water 9, fuel 6, rations 4, tea 3, oil 3. These are **coarse in-game portions**, not kilograms/millilitres or free calories magically entering his body. The chosen modest limits need 30-day envelope testing once subject-initiated meal frequency and alternatives are available.
@@ -34,7 +35,8 @@ Do **not** add a bladder meter until the Doctor has a reachable, maintained sani
 
 Priorities:
 - Choose exact in-world city/year and house type.
-- Add a **reachable bedroom washing facility** and a private sanitation route: either proper indoor water closet with modeled water/disposal and a coherent floor plan, or bedroom chamber pot plus accessible washbasin and a plausible disposal route. No magically vanishing waste.
+- The experimental house now has **a minimal attached private bedroom washroom** with a source-verified use event. Until richer geometry is modeled it is a semantic annex rather than a new independent mapped room. The fitted WC implies its own municipal drainage; **we do not pretend to have modeled that drain or a movable toilet**. Test free-roam intentions to inspect, repair or decorate it as possible world gaps rather than inventing such actions.
+- Before production choose definitively between period-appropriate urban plumbing and a chamber-pot/privy arrangement, and verify waste disposal and handwashing access for the selected setting. No magically vanishing waste in a deeper item-level simulation.
 - Optional hygiene mechanics and washing ought to be gentle, not a punishing slider. A bladder/pain variable is **out of scope** until agent-accessible relief and exhaustion-safe recovery are verified.
 - Garden/herbs can add supplementary food, comfort and voluntary work later; tiny indoor flowers alone cannot sustainably feed a person, so do not present a window box as a starvation fix.
 
