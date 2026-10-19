@@ -35,7 +35,7 @@ def main(argv=None):
     HomeLife(world).initialize()
     DailyRhythm(world).initialize(
         perishable_meals=True, physical_provisions=True,
-        visible_portions=True, physical_paper=True)
+        visible_portions=True, physical_paper=True, safe_household=True)
     HomeArrangements(world).initialize()
     MaterialObjects(world).initialize()
     PersonalProjects(world).initialize()

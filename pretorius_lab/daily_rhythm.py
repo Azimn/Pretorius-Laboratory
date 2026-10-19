@@ -22,6 +22,13 @@ FRESH_RULES = "pretorius-daily-rhythm/2-perishable-meals"
 STOCK_RULES = "pretorius-daily-rhythm/3-physical-provision-access"
 VISIBLE_RULES = "pretorius-daily-rhythm/4-visible-provision-portions"
 PAPER_RULES = "pretorius-daily-rhythm/5-physical-authored-paper"
+CARE_RULES = "pretorius-daily-rhythm/6-provisioned-residency"
+# A contracted offstage grocer, not a magically refilling cupboard. Deliveries
+# become observable parcels after four real simulated hours, require pickup
+# and explicit unpacking. The supplier's village is NOT simulated yet.
+DELIVERY_DELAY = 240
+DELIVERY_BUNDLE = {"water": 14, "fuel": 8, "rations": 8,
+                   "tea": 4, "oil": 3}
 MAX_PAPER_PAGES = 40
 MAX_PAPER_CHARS = 240
 MEAL_FRESH_MINUTES = 360  # deliberately coarse six-hour prepared-food window
@@ -60,6 +67,13 @@ FRESH_INITIAL = {**initial_state(), "meal_prepared_minute": None}
 FRESH_INITIAL_DIGEST = digest(FRESH_INITIAL)
 PAPER_INITIAL = {**initial_state(), "meal_prepared_minute": None, "paper_marks": []}
 PAPER_INITIAL_DIGEST = digest(PAPER_INITIAL)
+CARE_INITIAL = {**copy.deepcopy(PAPER_INITIAL),
+                "lamps": {**copy.deepcopy(PAPER_INITIAL["lamps"]), "room:washroom": 0},
+                "washroom": {"visits": 0, "washed": 0},
+                "household_supply": {"ordered_minute": None,
+                                     "parcel": "none", "orders": 0,
+                                     "delivered": 0, "unpacked": 0}}
+CARE_INITIAL_DIGEST = digest(CARE_INITIAL)
 
 
 def _version_initial(rules: str) -> dict:
@@ -67,6 +81,8 @@ def _version_initial(rules: str) -> dict:
         return INITIAL
     if rules == PAPER_RULES:
         return PAPER_INITIAL
+    if rules == CARE_RULES:
+        return CARE_INITIAL
     if rules in (FRESH_RULES, STOCK_RULES, VISIBLE_RULES):
         return FRESH_INITIAL
     raise Conflict("Unknown household rhythm rules")
@@ -78,7 +94,9 @@ def _meal_stale(s: dict) -> bool:
         s["minute"] - prepared >= MEAL_FRESH_MINUTES)
 OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
-              "repair", "discard_meal", "write_paper", "read_paper"}
+              "repair", "discard_meal", "write_paper", "read_paper",
+              "order_provisions", "collect_provisions", "unpack_provisions",
+              "drink_water", "eat_bread", "use_washroom", "wash_hands"}
 
 
 def _metadata(db):
@@ -120,6 +138,7 @@ def _stock_access(home_state: dict, station: str) -> dict:
 
     return {
         "meal": available("food:bread"),
+        "water": available("tableware:cup"),
         "tea": all(available(item) for item in (
             "food:tea", "tableware:teapot", "tableware:cup")),
     }
@@ -194,7 +213,8 @@ def _pose(db, body_revision: int, initial_station: str):
 
 
 def _validate(state: dict) -> None:
-    if set(state) not in (set(INITIAL), set(FRESH_INITIAL), set(PAPER_INITIAL)):
+    if set(state) not in (set(INITIAL), set(FRESH_INITIAL),
+                           set(PAPER_INITIAL), set(CARE_INITIAL)):
         raise Conflict("Daily state schema has drifted")
     if type(state["minute"]) is not int or state["minute"] < INITIAL["minute"]:
         raise Conflict("Invalid simulated time")
@@ -206,7 +226,9 @@ def _validate(state: dict) -> None:
         for v in state["supplies"].values()
     ):
         raise Conflict("Invalid finite domestic supplies")
-    if set(state["lamps"]) != set(LAMPS) or any(
+    expected_lamps = set(LAMPS) | (
+        {"room:washroom"} if "household_supply" in state else set())
+    if set(state["lamps"]) != expected_lamps or any(
         type(v) is not int or not 0 <= v <= 60
         for v in state["lamps"].values()
     ):
@@ -236,6 +258,24 @@ def _validate(state: dict) -> None:
                     any(ord(ch) < 32 and ch != "\n" for ch in note)
                     for note in marks)):
             raise Conflict("Physically written pages are malformed")
+    if "household_supply" in state:
+        wc = state.get("washroom")
+        if (type(wc) is not dict or set(wc) != {"visits", "washed"}
+                or any(type(x) is not int or x < 0 for x in wc.values())):
+            raise Conflict("Invalid private washroom record")
+        supply = state["household_supply"]
+        if (type(supply) is not dict or set(supply) != {
+                "ordered_minute", "parcel", "orders", "delivered", "unpacked"}
+                or supply["parcel"] not in ("none", "hall", "carried")
+                or any(type(supply[k]) is not int or supply[k] < 0
+                       for k in ("orders", "delivered", "unpacked"))
+                or not (supply["unpacked"] <= supply["delivered"] <= supply["orders"])
+                or (supply["ordered_minute"] is not None and (
+                    type(supply["ordered_minute"]) is not int or
+                    not 420 <= supply["ordered_minute"] <= state["minute"]))):
+            raise Conflict("Invalid historic grocer delivery chain")
+        if supply["ordered_minute"] is not None and supply["parcel"] != "none":
+            raise Conflict("Only one outstanding or delivered parcel at a time")
     if any(type(state[k]) is not int or state[k] < 0
            for k in ("experiments", "repairs", "chores")):
         raise Conflict("Invalid work counters")
@@ -255,7 +295,14 @@ def _pass_time(s: dict, minutes: int) -> None:
         raise LabError("Time must be a positive whole number of minutes")
     before, after = s["minute"], s["minute"] + minutes
     s["minute"] = after
-    for room in LAMPS:
+    if "household_supply" in s:
+        supply = s["household_supply"]
+        ordered = supply["ordered_minute"]
+        if ordered is not None and after - ordered >= DELIVERY_DELAY:
+            supply["ordered_minute"] = None
+            supply["parcel"] = "hall"
+            supply["delivered"] += 1
+    for room in s["lamps"]:
         s["lamps"][room] = max(0, s["lamps"][room] - minutes)
     s["hunger"] = min(10, s["hunger"] + after // 180 - before // 180)
     s["thirst"] = min(10, s["thirst"] + after // 120 - before // 120)
@@ -299,6 +346,14 @@ def _perceive(s: dict, station: str) -> str:
         )
         if s["supplies"]["rations"] <= 0:
             sentence += " I have run out of stored food provisions."
+    if "household_supply" in s and _can_see(s, room):
+        parcel = s["household_supply"]["parcel"]
+        if station == "station:hall" and parcel == "hall":
+            sentence += " A provisioner's parcel has been left inside my entrance."
+        elif parcel == "carried":
+            sentence += " I am carrying the provisioner's parcel."
+    if room == "room:washroom":
+        sentence += " I have privacy here, with a screened sanitary closet and washstand."
     if room == "room:shop" and _can_see(s, room):
         sentence += " The little shop is hardly fit for trade."
     return sentence
@@ -448,6 +503,80 @@ def transition(state: dict, op: str, args: dict, station: str, *,
         _pass_time(new, 20)
         new["thirst"] = max(0, new["thirst"] - 4)
         inner = "I prepare and drink tea. The warmth is welcome."
+    elif op == "use_washroom":
+        if "household_supply" not in new:
+            raise LabError("A private washroom is not available in this household")
+        if args or station != "station:washroom":
+            raise Conflict("I need to go into my separate private washroom")
+        new["washroom"]["visits"] += 1
+        _pass_time(new, 5)
+        inner = "I use the private sanitary closet and attend to my needs."
+    elif op == "wash_hands":
+        if "household_supply" not in new:
+            raise LabError("There is no supported domestic washstand")
+        if args or station != "station:washroom" or new["supplies"]["water"] <= 0:
+            raise Conflict("I need the washstand and actual stored water")
+        new["supplies"]["water"] -= 1
+        new["washroom"]["washed"] += 1
+        _pass_time(new, 5)
+        inner = "I wash my hands at the washstand and dry them."
+    elif op == "eat_bread":
+        if "household_supply" not in new:
+            raise LabError("Simple uncooked food is not available under these rules")
+        if args or station != STATION_KITCHEN or new["supplies"]["rations"] <= 0:
+            raise Conflict("I need a real portion of bread in my kitchen")
+        if stock_access is None or not stock_access["meal"]:
+            raise Conflict("I cannot reach the actual bread provisions")
+        new["supplies"]["rations"] -= 1
+        _pass_time(new, 10)
+        new["hunger"] = max(0, new["hunger"] - 4)
+        inner = "I take some bread from my stores and eat it. I feel less hungry."
+    elif op == "drink_water":
+        if "household_supply" not in new:
+            raise LabError("Plain-water drinking requires the safe residency profile")
+        if args or station != STATION_KITCHEN or not _can_see(new, room):
+            raise Conflict("I need the kitchen and enough light for water")
+        if stock_access is None or not stock_access["water"] or new["supplies"]["water"] <= 0:
+            raise Conflict("I need actual potable stored water and a reachable cup")
+        new["supplies"]["water"] -= 1
+        _pass_time(new, 5)
+        new["thirst"] = max(0, new["thirst"] - 6)
+        inner = "I pour drinking water into my cup and drink. My thirst eases."
+    elif op == "order_provisions":
+        if "household_supply" not in new:
+            raise LabError("The household supplier is not configured")
+        parcel = new["household_supply"]
+        if (args or station != "station:hall" or
+                parcel["ordered_minute"] is not None or parcel["parcel"] != "none"):
+            raise Conflict("I cannot place another order until the last parcel is dealt with")
+        parcel["ordered_minute"] = new["minute"]
+        parcel["orders"] += 1
+        _pass_time(new, 10)
+        inner = "I leave an order for the provisioner on my established household account."
+    elif op == "collect_provisions":
+        if "household_supply" not in new:
+            raise LabError("No household deliveries under this version")
+        parcel = new["household_supply"]
+        if args or station != "station:hall" or parcel["parcel"] != "hall":
+            raise Conflict("There is no parcel waiting within reach")
+        parcel["parcel"] = "carried"
+        _pass_time(new, 5)
+        inner = "I pick up the parcel of food and household supplies from the hall."
+    elif op == "unpack_provisions":
+        if "household_supply" not in new:
+            raise LabError("No household deliveries under this version")
+        parcel = new["household_supply"]
+        if args or station != STATION_KITCHEN or parcel["parcel"] != "carried":
+            raise Conflict("I must bring an actual parcel into my kitchen")
+        if any(new["supplies"][item] + qty > 200
+               for item, qty in DELIVERY_BUNDLE.items()):
+            raise Conflict("My household stores have no space for another delivery")
+        for item, qty in DELIVERY_BUNDLE.items():
+            new["supplies"][item] += qty
+        parcel["parcel"] = "none"
+        parcel["unpacked"] += 1
+        _pass_time(new, 20)
+        inner = "I unpack the provisioner's parcel into my kitchen stores."
     elif op == "sleep":
         if args or station != STATION_BEDROOM:
             raise LabError("Sleep requires the actual bedroom")
@@ -504,6 +633,12 @@ def transition(state: dict, op: str, args: dict, station: str, *,
         inner = "I replace the worn component in my apparatus."
     else:
         raise LabError("Unsupported daily operation")
+    # Never run an unattended model through indefinite maximum need while
+    # the operator has omitted a provision/agent rescue path. Preserve the
+    # last safe world state; do not auto-feed the subject or invent supplies.
+    if ("household_supply" in new and op in ("advance", "sleep", "rest") and
+            (new["hunger"] >= 9 or new["thirst"] >= 9)):
+        raise Conflict("Residency safety pause: needs require agent-accessible care")
     _validate(new)
     return new, {"inner": inner, "spoken_aloud": said}
 
@@ -519,12 +654,14 @@ class DailyRhythm:
                    perishable_meals: bool = False,
                    physical_provisions: bool = False,
                    visible_portions: bool = False,
-                   physical_paper: bool = False):
+                   physical_paper: bool = False,
+                   safe_household: bool = False):
         self.home.verify()
         if (type(perishable_meals) is not bool or
                 type(physical_provisions) is not bool or
                 type(visible_portions) is not bool or
-                type(physical_paper) is not bool):
+                type(physical_paper) is not bool or
+                type(safe_household) is not bool):
             raise LabError("Rule selection must use booleans")
         if physical_provisions and not perishable_meals:
             raise LabError("Physical provisions build on the perishable-meal profile")
@@ -532,7 +669,10 @@ class DailyRhythm:
             raise LabError("Visible portions require real physical provision access")
         if physical_paper and not visible_portions:
             raise LabError("Writable physical paper builds on the active living-home profile")
-        selected_rules = (PAPER_RULES if physical_paper else
+        if safe_household and not physical_paper:
+            raise LabError("Provisioned residency extends the complete physical-paper home")
+        selected_rules = (CARE_RULES if safe_household else
+                          PAPER_RULES if physical_paper else
                           VISIBLE_RULES if visible_portions else
                           STOCK_RULES if physical_provisions else
                           FRESH_RULES if perishable_meals else RULES)
@@ -567,18 +707,20 @@ class DailyRhythm:
                 }
                 for k, value in vals.items():
                     _set(db, k, value)
-            elif (old["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES, PAPER_RULES) or
+            elif (old["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES, PAPER_RULES, CARE_RULES) or
                   (old["lab_id"], old["world_epoch"]) !=
                   (host["lab_id"], host["world_epoch"])):
                 raise Conflict("Daily-life state is not from the current Laboratory")
             elif initial_state is not None or parent is not None or (
-                    (physical_paper and old["rules"] != PAPER_RULES) or
+                    (safe_household and old["rules"] != CARE_RULES) or
+                    (physical_paper and not safe_household and
+                     old["rules"] not in (PAPER_RULES, CARE_RULES)) or
                     (visible_portions and not physical_paper and
-                     old["rules"] not in (VISIBLE_RULES, PAPER_RULES)) or
+                     old["rules"] not in (VISIBLE_RULES, PAPER_RULES, CARE_RULES)) or
                     (physical_provisions and not visible_portions and
-                     old["rules"] not in (STOCK_RULES, VISIBLE_RULES)) or
+                     old["rules"] not in (STOCK_RULES, VISIBLE_RULES, PAPER_RULES, CARE_RULES)) or
                     (perishable_meals and not physical_provisions and
-                     old["rules"] not in (FRESH_RULES, STOCK_RULES, VISIBLE_RULES))):
+                     old["rules"] not in (FRESH_RULES, STOCK_RULES, VISIBLE_RULES, PAPER_RULES, CARE_RULES))):
                 raise Conflict("An inhabited day-to-day world cannot change its rule profile")
         return self.verify()
 
@@ -590,13 +732,14 @@ class DailyRhythm:
             if db.execute("SELECT name FROM sqlite_master WHERE name='rhythm_meta'").fetchone() is None:
                 raise LabError("Daily-life addon has not been initialized")
             m = _metadata(db)
-            if (m["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES, PAPER_RULES) or
+            if (m["rules"] not in (RULES, FRESH_RULES, STOCK_RULES, VISIBLE_RULES, PAPER_RULES, CARE_RULES) or
                     (m["lab_id"], m["world_epoch"], m["home_id"]) !=
                     (world["lab_id"], world["world_epoch"], world["home_id"])):
                 raise Conflict("Daily life uses the wrong authority")
             if digest(m["genesis"]) != m["genesis_digest"]:
                 raise Conflict("Daily-life genesis modified without source")
             expected_digest = (INITIAL_DIGEST if m["rules"] == RULES else
+                               CARE_INITIAL_DIGEST if m["rules"] == CARE_RULES else
                                PAPER_INITIAL_DIGEST if m["rules"] == PAPER_RULES
                                else FRESH_INITIAL_DIGEST)
             if m["parent"] is None and m["genesis_digest"] != expected_digest:
@@ -611,7 +754,7 @@ class DailyRhythm:
                 raise Conflict("Daily-life origin cannot postdate its current world")
             prev, rev = GENESIS_HASH, 0
             home_states = (_home_snapshots(db) if m["rules"] in (
-                STOCK_RULES, VISIBLE_RULES, PAPER_RULES) else None)
+                STOCK_RULES, VISIBLE_RULES, PAPER_RULES, CARE_RULES) else None)
             last_body, last_home = m["body_at_install"], m["home_at_install"]
             for n, event_id, encoded, prior, h in db.execute(
                 "SELECT revision,event_id,envelope,prev_hash,event_hash "
@@ -638,7 +781,7 @@ class DailyRhythm:
                 access = (_stock_access(home_states[hr], station)
                           if home_states is not None else None)
                 paper = (_writing_access(home_states[hr], station)
-                         if m["rules"] == PAPER_RULES else None)
+                         if m["rules"] in (PAPER_RULES, CARE_RULES) else None)
                 result, subjective = transition(
                     seed, e["op"], e["args"], station,
                     stock_access=access, writing_access=paper)
@@ -674,10 +817,10 @@ class DailyRhythm:
                     raise Conflict("Event ID cannot be reused for a different action")
                 return copy.deepcopy(e["subject"])
             access = (_stock_access(home["state"], body["station"])
-                      if m["rules"] in (STOCK_RULES, VISIBLE_RULES, PAPER_RULES)
+                      if m["rules"] in (STOCK_RULES, VISIBLE_RULES, PAPER_RULES, CARE_RULES)
                       else None)
             paper = (_writing_access(home["state"], body["station"])
-                     if m["rules"] == PAPER_RULES else None)
+                     if m["rules"] in (PAPER_RULES, CARE_RULES) else None)
             after, subjective = transition(
                 m["state"], op, args, body["station"],
                 stock_access=access, writing_access=paper)
@@ -726,6 +869,7 @@ class DailyRhythm:
         DailyRhythm(clone).initialize(
             initial_state=copied, parent=parent,
             perishable_meals="meal_prepared_minute" in copied,
-            physical_provisions=m["rules"] in (STOCK_RULES, VISIBLE_RULES, PAPER_RULES),
-            visible_portions=m["rules"] in (VISIBLE_RULES, PAPER_RULES),
-            physical_paper=m["rules"] == PAPER_RULES)
+            physical_provisions=m["rules"] in (STOCK_RULES, VISIBLE_RULES, PAPER_RULES, CARE_RULES),
+            visible_portions=m["rules"] in (VISIBLE_RULES, PAPER_RULES, CARE_RULES),
+            physical_paper=m["rules"] in (PAPER_RULES, CARE_RULES),
+            safe_household=m["rules"] == CARE_RULES)

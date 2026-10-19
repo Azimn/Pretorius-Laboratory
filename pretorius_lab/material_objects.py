@@ -8,7 +8,7 @@ import json
 import re
 import uuid
 
-from .daily_rhythm import (DailyRhythm, PAPER_RULES, _home_snapshots,
+from .daily_rhythm import (DailyRhythm, PAPER_RULES, CARE_RULES, _home_snapshots,
                            _stock_access, _writing_access, _can_see,
                            transition as daily_transition)
 from .embodied_access import EmbodiedAccess, STATIONS
@@ -289,7 +289,7 @@ class MaterialObjects:
             r = meta(db, "rhythm_meta")
             b = meta(db, "embodied_meta")
             world = SpatialHabitat._metadata(db)
-            if r["rules"] != PAPER_RULES:
+            if r["rules"] not in (PAPER_RULES, CARE_RULES):
                 raise LabError("Botanical objects require v5 physically writable home")
             state = copy.deepcopy(initial_state if initial_state is not None else FIXTURE)
             validate(state)

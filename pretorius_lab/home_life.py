@@ -23,6 +23,7 @@ ROOM_LABELS = {
     "room:hall": "the narrow passage of my house",
     "room:kitchen": "my kitchen",
     "room:bedroom": "my bedroom",
+    "room:washroom": "my private washroom",
     "room:parlor": "my sitting room",
     "room:shop": "the small curiosity shop",
 }
