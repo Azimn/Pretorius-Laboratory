@@ -45,8 +45,12 @@ class ShadowPilotTests(unittest.TestCase):
     def test_narrative_is_shadow_only_not_an_invented_chair_move(self):
         original = HomeArrangements(self.world).audit_state()
         prior = self.pilot.observe()
-        self.pilot.narrative(
+        moment = self.pilot.narrative(
             turn_id="soft-window", text="I imagine moving the chair by the window.")
+        self.assertEqual(moment["source_class"],
+                         "external_author_unverified_nonmaterial")
+        self.assertEqual(moment["subject"]["inner"],
+                         "I imagine moving the chair by the window.")
         self.pilot.unsupported(
             turn_id="wish-for-carving",
             intention="I want to carve a wooden face into the side table.",
@@ -155,6 +159,20 @@ class ShadowPilotTests(unittest.TestCase):
         self.assertEqual(HomeArrangements(self.world).audit_state(), original)
         self.assertTrue(any(x["turn_id"] == "interrupted-unexecuted"
                             for x in self.pilot.audit()["barriers"]))
+
+    def test_soft_event_must_be_first_person_and_cannot_claim_a_source_receipt(self):
+        from pretorius_lab.physics import LabError
+        before = HomeArrangements(self.world).audit_state()
+        with self.assertRaises(LabError):
+            self.pilot.narrative(turn_id="invalid-witness",
+                                 text="The chair moved itself across the room.")
+        witness = self.pilot.narrative(
+            turn_id="wind-no-effect",
+            text="I hear a passing draft against the window.",
+            kind="ambient_impression")
+        self.assertEqual(witness["status"], "narrative_only")
+        self.assertIsNone(witness["receipt"])
+        self.assertEqual(HomeArrangements(self.world).audit_state(), before)
 
     def test_reusing_an_old_turn_id_with_different_intent_is_denied(self):
         self.pilot.narrative(turn_id="a-thought",
