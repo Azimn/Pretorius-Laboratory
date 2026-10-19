@@ -44,9 +44,11 @@ def valid(db):
         "lab_id": m.get("lab_id"), "home_id": m.get("home_id"),
         "world_epoch": m.get("world_epoch"),
         "installed_at_minute": m.get("installed_at_minute"),
+        "sanitation": m.get("sanitation"),
         "inherited_from": m.get("inherited_from"),
     }
     if (data["rules"] != RULES or data["supplier"] != SOURCE
+            or data["sanitation"] != "private-bedroom-washroom-with-water-closet"
             or (data["lab_id"], data["home_id"], data["world_epoch"]) !=
             (world["lab_id"], world["home_id"], world["world_epoch"])
             or type(data["installed_at_minute"]) is not int
@@ -79,6 +81,7 @@ class HouseholdCareContract:
                 "lab_id": world["lab_id"], "home_id": world["home_id"],
                 "world_epoch": world["world_epoch"],
                 "installed_at_minute": rhythm["state"]["minute"],
+                "sanitation": "private-bedroom-washroom-with-water-closet",
                 "inherited_from": inherited_from,
             }
             db.execute(
