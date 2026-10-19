@@ -84,7 +84,7 @@ def _meal_stale(s: dict) -> bool:
 OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
               "repair", "discard_meal", "write_paper", "read_paper",
-              "drink_water", "accept_delivery", "use_washroom"}
+              "drink_water", "draw_water", "accept_delivery", "use_washroom"}
 
 
 def _metadata(db):
@@ -477,6 +477,20 @@ def transition(state: dict, op: str, args: dict, station: str, *,
         _pass_time(new, 10)
         inner = ("I step into the small private washroom beside my bedroom, "
                  "use the water closet, wash my hands and return.")
+    elif op == "draw_water":
+        if args or station != STATION_KITCHEN or not care_authorized:
+            raise Conflict("This home has no verified kitchen water service")
+        if stock_access is not None and not stock_access.get("water", False):
+            raise Conflict("I need the real cup and household vessels within reach")
+        if new["supplies"]["water"] > 194:
+            raise Conflict("The kitchen vessels are already supplied with water")
+        # A municipal kitchen tap is an established fixed domestic service,
+        # not finite bottled supplies conjured by the host clock. Drawing it
+        # requires a first-person action; no water appears at midnight.
+        new["supplies"]["water"] += 6
+        _pass_time(new, 10)
+        inner = ("I turn the kitchen water tap and fill my household vessels "
+                 "with fresh drinking water.")
     elif op == "drink_water":
         if args or station != STATION_KITCHEN:
             raise Conflict("I need to drink water in the kitchen")
