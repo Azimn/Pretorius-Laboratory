@@ -102,6 +102,29 @@ def _current(db, table: str):
         f"SELECT key,value FROM {table}")}
 
 
+def available_delivery_day(db, station):
+    """Trusted host check for a routine offstage arrival, never automatic feeding.
+
+    Standing order is modelled as one exchanged delivery per civil day, from
+    6 AM onward, reachable only in the real entrance hall. Nothing is added
+    to stock until an exact physical action is committed.
+    """
+    if station != "station:hall":
+        return None
+    m = _metadata(db)
+    if m.get("rules") != PAPER_RULES:
+        return None
+    minute = m["state"]["minute"]
+    day = minute // 1440
+    if day < 1 or minute % 1440 < 360:
+        return None
+    for (raw,) in db.execute("SELECT envelope FROM rhythm_events"):
+        e = json.loads(raw)
+        if e["op"] == "accept_delivery" and e["args"]["day"] == day:
+            return None
+    return day
+
+
 def _stock_access(home_state: dict, station: str) -> dict:
     """Engineer-only source-bound food affordances, never an omniscient frame.
 
