@@ -37,6 +37,11 @@ CLEANABLE = ("room:sanctum", "room:kitchen", "room:shop")
 STATION_WORK = "station:bench"
 STATION_KITCHEN = "station:kitchen"
 STATION_BEDROOM = "station:bedroom"
+# Optional household supply contract: daily routine packets left by a known
+# local supplier. They do not enter stock until the subject collects them.
+DELIVERY_FIRST_MINUTE = 1440 + 360
+DELIVERY_STOCK = {"water": 9, "fuel": 6, "rations": 4,
+                  "tea": 3, "oil": 3}
 
 
 def initial_state() -> dict:
@@ -78,7 +83,8 @@ def _meal_stale(s: dict) -> bool:
         s["minute"] - prepared >= MEAL_FRESH_MINUTES)
 OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
-              "repair", "discard_meal", "write_paper", "read_paper"}
+              "repair", "discard_meal", "write_paper", "read_paper",
+              "drink_water", "accept_delivery"}
 
 
 def _metadata(db):
@@ -122,6 +128,7 @@ def _stock_access(home_state: dict, station: str) -> dict:
         "meal": available("food:bread"),
         "tea": all(available(item) for item in (
             "food:tea", "tableware:teapot", "tableware:cup")),
+        "water": available("tableware:cup"),
     }
 
 
@@ -306,7 +313,8 @@ def _perceive(s: dict, station: str) -> str:
 
 def transition(state: dict, op: str, args: dict, station: str, *,
                stock_access: dict | None = None,
-               writing_access: dict | None = None):
+               writing_access: dict | None = None,
+               delivery_authorized: bool = False):
     """Pure replayable transition: no raw numbers are returned to the subject."""
     if op not in OPERATIONS or station not in STATIONS or not isinstance(args, dict):
         raise LabError("Unsupported daily-life action or bodily station")
@@ -434,6 +442,31 @@ def transition(state: dict, op: str, args: dict, station: str, *,
             raise Conflict("There is not enough light left to finish reading")
         _pass_time(new, 2)
         inner = "I read what is written on my paper: " + new["paper_marks"][page - 1]
+    elif op == "drink_water":
+        if args or station != STATION_KITCHEN:
+            raise Conflict("I need to drink water in the kitchen")
+        if stock_access is not None and not stock_access.get("water", False):
+            raise Conflict("I need a real cup within reach")
+        if new["supplies"]["water"] <= 0:
+            raise Conflict("There is no drinking water left")
+        new["supplies"]["water"] -= 1
+        _pass_time(new, 5)
+        new["thirst"] = max(0, new["thirst"] - 4)
+        inner = "I drink a cup of water and feel less thirsty."
+    elif op == "accept_delivery":
+        day = args.get("day")
+        if (set(args) != {"day"} or type(day) is not int or
+                station != "station:hall" or
+                day < 1 or new["minute"] < DELIVERY_FIRST_MINUTE or
+                day != new["minute"] // 1440 or
+                (new["minute"] % 1440) < 360 or
+                not delivery_authorized):
+            raise Conflict("No verified fresh provisions are ready for me here")
+        for good, amount in DELIVERY_STOCK.items():
+            new["supplies"][good] = min(200, new["supplies"][good] + amount)
+        _pass_time(new, 10)
+        inner = ("I collect the ordinary household delivery left in the entrance hall. "
+                 "There is fresh bread, drinking water, tea, fuel and lamp oil for the household.")
     elif op == "brew_tea":
         if args or station != STATION_KITCHEN:
             raise LabError("Tea must be made in the kitchen")
@@ -613,6 +646,7 @@ class DailyRhythm:
             home_states = (_home_snapshots(db) if m["rules"] in (
                 STOCK_RULES, VISIBLE_RULES, PAPER_RULES) else None)
             last_body, last_home = m["body_at_install"], m["home_at_install"]
+            delivery_days = set()
             for n, event_id, encoded, prior, h in db.execute(
                 "SELECT revision,event_id,envelope,prev_hash,event_hash "
                 "FROM rhythm_events ORDER BY revision"):
@@ -639,9 +673,16 @@ class DailyRhythm:
                           if home_states is not None else None)
                 paper = (_writing_access(home_states[hr], station)
                          if m["rules"] == PAPER_RULES else None)
+                delivery_day = e["args"].get("day") if e["op"] == "accept_delivery" else None
+                delivery_authorized = (
+                    m["rules"] == PAPER_RULES and type(delivery_day) is int
+                    and delivery_day not in delivery_days)
                 result, subjective = transition(
                     seed, e["op"], e["args"], station,
-                    stock_access=access, writing_access=paper)
+                    stock_access=access, writing_access=paper,
+                    delivery_authorized=delivery_authorized)
+                if e["op"] == "accept_delivery":
+                    delivery_days.add(delivery_day)
                 if (e["subject"] != subjective or
                         e["after_digest"] != digest(result)):
                     raise Conflict("Daily-life consequences or first-person result altered")
@@ -678,9 +719,20 @@ class DailyRhythm:
                       else None)
             paper = (_writing_access(home["state"], body["station"])
                      if m["rules"] == PAPER_RULES else None)
+            claimed_days = set()
+            if op == "accept_delivery":
+                for (raw,) in db.execute("SELECT envelope FROM rhythm_events"):
+                    prev = json.loads(raw)
+                    if prev["op"] == "accept_delivery":
+                        claimed_days.add(prev["args"]["day"])
+            delivery_authorized = (
+                op == "accept_delivery" and m["rules"] == PAPER_RULES
+                and type(args.get("day")) is int
+                and args["day"] not in claimed_days)
             after, subjective = transition(
                 m["state"], op, args, body["station"],
-                stock_access=access, writing_access=paper)
+                stock_access=access, writing_access=paper,
+                delivery_authorized=delivery_authorized)
             event = {
                 "event_id": event_id, "revision": m["revision"] + 1,
                 "op": op, "args": args,
