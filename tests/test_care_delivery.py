@@ -62,6 +62,38 @@ class HouseholdCareTests(unittest.TestCase):
         self.assertEqual(self.clock.audit_state()["supplies"]["water"], amount-1)
         self.assertTrue(self.clock.verify()["verified"])
 
+    def test_kitchen_tap_can_reopen_hydration_without_a_delivery(self):
+        self.go_kitchen()
+        self.do("open", "water-service-cupboard", container="cupboard:kitchen")
+        from pretorius_lab.daily_rhythm import transition
+        before = self.clock.audit_state()
+        # The actual service, not the delivery queue, is the source.
+        self.assertIsNotNone(self.choice("draw_water"))
+        filled = self.do("draw_water", "tap-water-drawn")
+        self.assertEqual(filled["source_table"], "rhythm_events")
+        self.assertIn("turn the kitchen water tap", filled["subject"]["inner"])
+        filled_state = self.clock.audit_state()
+        self.assertEqual(filled_state["supplies"]["water"],
+                         before["supplies"]["water"] + 6)
+        self.assertEqual(filled_state["thirst"], before["thirst"])
+        drank = self.do("drink_water", "drink-real-piped-water")
+        self.assertIn("feel less thirsty", drank["subject"]["inner"])
+        self.assertEqual(self.clock.audit_state()["supplies"]["water"],
+                         filled_state["supplies"]["water"] - 1)
+        self.assertTrue(self.clock.verify()["verified"])
+        self.assertTrue(MaterialObjects(self.world).verify()["verified"])
+        # An unenrolled old home is not given the new permanent tap.
+        old = SpatialHabitat.create(self.path.parent / "no-plumbing.sqlite3")
+        HomeLife(old).initialize()
+        original = DailyRhythm(old)
+        original.initialize(perishable_meals=True, physical_provisions=True,
+                            visible_portions=True, physical_paper=True)
+        from pretorius_lab.subject_port import SubjectPort
+        SubjectPort(old).act("walk", event_id="piped-old-hall", station="station:hall")
+        SubjectPort(old).act("walk", event_id="piped-old-kitchen", station="station:kitchen")
+        with self.assertRaises(Conflict):
+            original.act("draw_water", event_id="forged-city-mains")
+
     def test_an_unseen_courier_cannot_claim_delivery_before_world_morning(self):
         from pretorius_lab.daily_rhythm import available_delivery_day
         self.go_hall()
