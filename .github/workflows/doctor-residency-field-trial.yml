@@ -1,0 +1,28 @@
+name: Doctor Residency Field Trial
+on:
+  push:
+    branches:
+      - experiment/doctor-residency-field-trial-20261019
+  pull_request:
+    paths:
+      - pretorius_lab/field_residency.py
+      - tests/test_field_residency.py
+      - .github/workflows/doctor-residency-field-trial.yml
+  workflow_dispatch:
+jobs:
+  residency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Provisional renderer world event / narrative / barriers / recovery tests
+        run: python -m unittest discover -s tests -p test_field_residency.py -v
+      - name: Entire existing historical Laboratory regression suite
+        run: python -m unittest discover -s tests -v

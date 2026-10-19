@@ -300,9 +300,19 @@ class HomeArrangements:
                     transition(m["state"], op, args, body, clock)
                 except (Conflict, LabError):
                     continue
+                name = m["state"][args["object"]]["name"]
+                if op == "move":
+                    description = "move the " + name + " " + ANCHORS[args["anchor"]]
+                else:
+                    destination = ANCHORS[args["facing"]]
+                    # Make direction distinct in ordinary language. A model
+                    # should not receive five identical "reposition" options
+                    # that secretly correspond to different source actions.
+                    direction = (destination.replace("beside ", "")
+                                 .replace("near ", ""))
+                    description = "turn the " + name + " to face " + direction
                 valid.append({"op": op, "args": args,
-                              "description": "reposition the " +
-                              m["state"][args["object"]]["name"]})
+                              "description": description})
             return valid
 
     def _fork_into(self, clone):
