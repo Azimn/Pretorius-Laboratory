@@ -8,6 +8,8 @@ The existing household physics has finite food, water, fuel, tea and oil. The ne
 
 `pretorius_lab/care_endurance.py` simulates thirty civil days **through the original validated pure DailyRhythm transition function**, not an invented spreadsheet's food equations. The control deliberately drinks water, prepares and eats meals when hungry, cleans when required, rests/sleeps and collects ordinary deliveries. Water drawing and hydration are two different actions. The standing supplier may miss selected days. The same finite stores, resource caps, elapsed minutes, food freshness, daylight and fatigue checks apply.
 
+The reference controller also offers a modest daytime second meal when hunger is already starting to return, specifically to avoid mornings at the severe-hunger threshold. Its regression now requires both hunger and thirst to remain **below the host's severe-needs thresholds after each night's sleep**, not merely nonnegative resource balances.
+
 The controlled envelope **assumes** the Doctor can access the relevant kitchen vessels, move between places, and actually select these activities: `stock_access={"meal":True,"water":True,"tea":True}` and prescribed real stations. That is a *deliberate upper-bound reference*, **not** a source-authenticated in-world 30-day physical record. It provides **no** Doctor autobiographical memory or evidence of neural or ChatGPT independent choices. It must not be cited as proof he is safe running for a month without an operator.
 
 ### Supported claims after a passing test
@@ -37,6 +39,12 @@ python -m pretorius_lab.care_endurance --days 30 --miss-delivery 8 --miss-delive
 The test's first case simulates 30 days with days 8 and 9 omitted from normal delivery. The negative control with nearly a week of no subsequent merchant packets **must** raise an explicit physical resource failure. Any unexplained success in that counterfactual is a bug.
 
 The study output is host audit JSON with day-level need and stock numbers; **never feed it raw to Pretorius**. Only the first-person SubjectPort observations belong inside his subject-facing experience.
+
+## Real-world physical continuity companion
+
+`tests/test_care_real_world_days.py` adds a **four-day authenticated Laboratory source-verb scenario**, deliberately shorter and more expensive than the pure envelope. It physically visits the kitchen, opens the actual cupboard, draws water as a separate action, drinks from stored finite portions, cooks/eats and cleans, returns via real hall/bedroom stations, sleeps on an actual clock, collects day 1 and day 3 merchant parcels, explicitly **misses day 2**, and reopens the exact same world SQLite file. Every action is selected from a fresh source-verified `UnifiedHomeActions` offer and returns its original source event hash. The final assertions independently replay `DailyRhythm`, `HomeArrangements`, `PersonalProjects`, `MaterialObjects` and the care agreement.
+
+This is still a **test operator** choosing care actions, not the Doctor freely living four days. It is a separate check against a silent mismatch between the pure reducer's assumed object access and the actual Laboratory's doors, rooms and provision objects. This test remains **pending full GitHub CI** as of this note.
 
 ## Next meaningful gate before autonomous continuous occupancy
 
