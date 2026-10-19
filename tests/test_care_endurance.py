@@ -17,6 +17,11 @@ class ThirtyDayCareEnvelopeTests(unittest.TestCase):
         self.assertTrue(all(
             day["ration_stock"] >= 0 and day["water_stock"] >= 0
             for day in outcome["daily"]))
+        # A credible well-managed reference household should not produce
+        # repeated max-need mornings and call that sustainable existence.
+        self.assertTrue(all(
+            day["hunger_on_waking"] < 9 and day["thirst_on_waking"] < 8
+            for day in outcome["daily"]))
         self.assertTrue(all(
             day["calendar_day"] == i for i, day in enumerate(outcome["daily"])))
         self.assertEqual(outcome["control"],
