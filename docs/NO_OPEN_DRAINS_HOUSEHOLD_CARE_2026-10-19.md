@@ -1,0 +1,51 @@
+# Household care contract: no open drains, no invisible pantry resets
+
+**October 19, 2026 — experimental draft, stacked after Free-Roam PR #37.**
+
+This design is an interim habitat for Pretorius while Frankenstein Village is offline. We do **not** leave him in a permanently hungry/thirsty state, repeatedly starve a fictional character, or add arbitrary physiological needs with no in-world remedy.
+
+## Three separate things
+
+1. **Material welfare:** a physically valid path from ordinary hunger/thirst to food and water must exist even after the *initial stock is exhausted*. Satisfying a need is a **voluntary subject choice**, not automatic host feeding.
+2. **Plausible supply source:** the Doctor's household has a standing order with a local supplier. Each morning from **6 AM onward, starting the next civil day**, a single delivery is notionally exchanged at the entrance-hall collection area. The external supplier and transaction can be represented as an **offstage source-grounded event**, not a fully navigable village. The current day is computed from the **same authenticated world clock**; no simulated outdoors geometry is implied.
+3. **Welfare fallback:** if an unattended stand-in loop leaves hunger/thirst severe, the engineering host **holds further sleep/rest/time advancement** and reports an unmet need. The world remains real and unchanged. It does not force-feed Pretorius, rewrite his sensations to 'feel fine', or allow indefinitely repeated suffering. He may still choose to walk, collect supplies, drink and eat.
+
+## Concrete mechanism
+
+Original v5 rhythm supplies are finite and remain in the real `rhythm_meta` state. New opt-in source-world operations:
+
+- `drink_water`: in the kitchen with the actual teacup accessible, requires `water>0`, uses one real water portion, advances five authenticated world minutes, and reduces thirst. **Thirst is not hostage to the last tea leaf**.
+- `accept_delivery(day=N)`: from the actual hall, after the genuine dawn of civil day `N>=1`. The subject sees an ordinary parcel from an established local supplier *only when present at the real hall station*. A single source-backed `rhythm_events` receipt tops up existing finite oil, water, fuel, tea and rations, with fixed amounts and 200-unit caps. No supplies appear inside a cupboard merely because midnight passed. An original receipt can be idempotently retried, but a second new receipt for the same day is **denied and independently replay-checked**.
+- Optional `care_safety.assess`: **trusted host only**, sees current needs and supplies and blocks unattended further sleep/rest/fast-forward when hunger is 9+ or thirst 8+. Does not introduce a new subjective distress scale or invisible meter. Rehydration and ordinary kitchen/collection actions remain available.
+
+Delivery contents initially: water 9, fuel 6, rations 4, tea 3, oil 3. These are **coarse in-game portions**, not kilograms/millilitres or free calories magically entering his body. The chosen modest limits need 30-day envelope testing once subject-initiated meal frequency and alternatives are available.
+
+### Historical flavor, not fictional physical proof
+
+Standing delivery is a practical temporary simulation of real historical commercial arrangements. Old Treasury Building documents groceries and bread brought to homes by merchants, and [University of the West of England's historical domestic-service survey](https://environment.uwe.ac.uk/conweb/house_ages/services/section4.htm) describes changes in late-nineteenth-century water facilities. Nothing is assumed about the exact in-world city or year until it is settled, and there is **no live Village economy or explicit supplier NPC** yet.
+
+Real physical consistency: the bread/tea tin/cup still have original furniture custody and need to be accessible; replenishment alters their actual finite associated portions, not their positions. External parcel is **event-scale provenance** rather than a movable, individually inspectable new box. If the Doctor wishes to keep a package, inspect its label or meet the courier, those remain currently unsupported and must be recorded in the free-roam barrier log.
+
+When Village commerce becomes available, **replace only the supply source**: real purchases/shipments invoke the same acknowledged delivery-style finite stock transition with a new verified transaction receipt, rather than fabricating food or transporting Doctor's brain/memory.
+
+## Sanitation and physiological realism
+
+Do **not** add a bladder meter until the Doctor has a reachable, maintained sanitary path. Nineteenth-century interiors varied, including chamber pots and washstands, outdoor privies and (for some better-equipped later houses) water closets. [Islington Object Lessons](https://www.objectlessons.org/houses-and-homes-victorians/chamber-pot-victorian-original/s59/a1075/) documents actual chamber-pot cleaning and disposal, and [UWE](https://environment.uwe.ac.uk/conweb/house_ages/services/section4.htm) describes the expansion of fitted late-century bathrooms.
+
+Priorities:
+- Choose exact in-world city/year and house type.
+- Add a **reachable bedroom washing facility** and a private sanitation route: either proper indoor water closet with modeled water/disposal and a coherent floor plan, or bedroom chamber pot plus accessible washbasin and a plausible disposal route. No magically vanishing waste.
+- Optional hygiene mechanics and washing ought to be gentle, not a punishing slider. A bladder/pain variable is **out of scope** until agent-accessible relief and exhaustion-safe recovery are verified.
+- Garden/herbs can add supplementary food, comfort and voluntary work later; tiny indoor flowers alone cannot sustainably feed a person, so do not present a window box as a starvation fix.
+
+## Causal test gates
+
+1. No delivery available at the original day or before 6 AM. One claim per civil day; historical ledger rejects a forged duplicate date, wrong hall station or changed event.
+2. When initial tea is exhausted, an actual morning delivery makes real tea brewing possible again after returning to the kitchen and reaching teaware. Plain water must also work independent of tea.
+3. All existing book, paper, furniture, specimen and project histories remain replay-valid *after* a delivery. No reset of their object permanence or identities.
+4. The unattended ChatGPT stand-in receives hunger/thirst **only via first-person bodily language**, and the host-only care gate halts further unbounded time passage at severe distress without inventing a feeding receipt.
+5. Seven and thirty-day trials eventually cover periodic missed deliveries, resource conservation, cupboard closed, fuel shortage, fatigue, impassable access, and atypical choices. If the Doctor refuses food as an independent choice, report it and pause for review rather than forcibly rewriting his choices.
+
+### Scientific limitations
+
+This is a safety-oriented supply transition grafted to the existing v5 opt-in history, not an external economy, actual garden, physical courier route, guaranteed day-by-day autonomous welfare, or psychological account of needs. No production migration, current Doctor memory edit, Article score advancement or evidence of intrinsic motivation. Never enable unattended autonomous operation until complete welfare/recovery and resource-exhaustion tests pass.
