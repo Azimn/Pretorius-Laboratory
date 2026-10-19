@@ -20,6 +20,9 @@ def assess(habitat):
     urgent = state["thirst"] >= 8 or state["hunger"] >= 9
     return {
         "pause_unattended_time": urgent,
+        # A short rest may be essential before he can prepare food.
+        # It is allowed as deliberate recovery only while truly exhausted.
+        "recovery_rest_needed": state["fatigue"] >= 8,
         "needed": [
             name for name, flag in (
                 ("water", state["thirst"] >= 7),
