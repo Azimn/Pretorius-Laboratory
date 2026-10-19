@@ -195,6 +195,27 @@ class HouseholdCareTests(unittest.TestCase):
             historic.act("use_washroom", event_id="no-ensuite")
         self.assertTrue(historic.verify()["verified"])
 
+    def test_installing_care_contract_invalidates_old_world_offers(self):
+        # Contract installation is an authentic source-world capability
+        # change even when clock/actor/physical items did not move.
+        old = SpatialHabitat.create(self.path.parent / "upgrade-optin.sqlite3")
+        HomeLife(old).initialize()
+        original = DailyRhythm(old)
+        original.initialize(perishable_meals=True, physical_provisions=True,
+                            visible_portions=True, physical_paper=True)
+        old_actions = UnifiedHomeActions(old)
+        before = old_actions.discover()
+        old_walk = next(x for x in before["offers"]
+                        if x["command"] == "walk" and
+                        x["args"] == {"station": "station:hall"})
+        HouseholdCareContract(old).initialize()
+        after = old_actions.discover()
+        self.assertNotEqual(before["world_stamp"], after["world_stamp"])
+        with self.assertRaises(Conflict):
+            old_actions.execute(old_walk["offer_id"], event_id="obsolete-contract")
+        self.assertTrue(HouseholdCareContract(old).verify()["verified"])
+        self.assertTrue(original.verify()["verified"])
+
     def test_opt_in_contract_follows_world_fork_without_inventing_old_deliveries(self):
         self.go_hall()
         self.next_day("fork-day")
