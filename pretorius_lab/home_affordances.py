@@ -23,6 +23,7 @@ _DOMESTIC_OPERATIONS = ("open", "close", "take", "put")
 _RHYTHM_OPERATIONS = {
     "brew_tea": "brew a cup of tea",
     "drink_water": "drink a cup of fresh water",
+    "use_washroom": "use the private washroom next to my bedroom",
     "prepare_meal": "prepare a simple meal",
     "eat": "eat the meal I have prepared",
     "rest": "rest for a while",
@@ -166,10 +167,13 @@ class HomeAffordances:
                             "I could put the " + item["name"] +
                             " in the " + container["name"] + ".")
 
+        from .care_contract import valid as validated_care
+        with self.subject.habitat._open() as db:
+            care_enabled = validated_care(db) is not None
         for op, phrase in _RHYTHM_OPERATIONS.items():
             try:
                 transition(state, op, {}, station, stock_access=stock,
-                           writing_access=writing)
+                           writing_access=writing, care_authorized=care_enabled)
             except (Conflict, LabError):
                 continue
             add(op, {}, "I could " + phrase + ".")
