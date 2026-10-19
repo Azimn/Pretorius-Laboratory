@@ -25,6 +25,8 @@ _RHYTHM = {"advance", "light", "extinguish", "prepare_meal", "eat",
 
 
 def _event_table(command):
+    if command.startswith("project:"):
+        return "project_events"
     if command == "book":
         return "books_events"
     if command == "walk":
@@ -118,10 +120,15 @@ class UnifiedHomeActions:
     def discover(self):
         """Return unranked opportunities plus independently grounded subject text."""
         base, books, catalog, nearby, custody = self._catalog()
+        from .personal_projects import PersonalProjects, exists as projects_exist
+        with self.habitat._open() as db:
+            projects_present = projects_exist(db)
+        projects = (PersonalProjects(self.habitat).audit_state()
+                    if projects_present else None)
         stamp = digest({
             "home_stamp": base["world_stamp"],
             "books": books, "custody": custody,
-            "book_locality": sorted(nearby),
+            "book_locality": sorted(nearby), "projects": projects,
         })
         offered = []
 
@@ -167,6 +174,11 @@ class UnifiedHomeActions:
                 for mark in sorted(record["bookmarks"]):
                     bookop("open_mark", "I could return to a marked page in " +
                            title + ".", bookmark_id=mark)
+        if projects_present:
+            for option in PersonalProjects(self.habitat).current_offers():
+                add("project:" + option["op"], dict(option["args"]),
+                    "I could " + option["description"] + ".",
+                    free_text=option["free_text"])
         # The apparent opportunities must be descriptive, not obligations.
         fragment = " ".join(o["description"] for o in offered)
         frame = {
@@ -181,10 +193,12 @@ class UnifiedHomeActions:
             raise Conflict("The Doctor was given an invalid subject perspective")
         # Do not mint usable tokens against a changed material source.
         next_base, next_books, _, next_nearby, next_custody = self._catalog()
+        next_projects = (PersonalProjects(self.habitat).audit_state()
+                         if projects_present else None)
         other = digest({
             "home_stamp": next_base["world_stamp"],
             "books": next_books, "custody": next_custody,
-            "book_locality": sorted(next_nearby),
+            "book_locality": sorted(next_nearby), "projects": next_projects,
         })
         if other != stamp:
             raise Conflict("World changed during unified action discovery")
@@ -225,6 +239,9 @@ class UnifiedHomeActions:
         elif table == "botanical_events":
             from .material_objects import MaterialObjects
             MaterialObjects(self.habitat).verify()
+        elif table == "project_events":
+            from .personal_projects import PersonalProjects
+            PersonalProjects(self.habitat).verify()
         elif table == "arrangement_events":
             from .home_arrangement import HomeArrangements
             HomeArrangements(self.habitat).verify()
