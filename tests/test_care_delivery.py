@@ -138,6 +138,10 @@ class HouseholdCareTests(unittest.TestCase):
             self.assertIsNone(available_delivery_day(db, "station:hall"))
         with self.assertRaises(Conflict):
             historic.act("accept_delivery", event_id="no-contract", day=1)
+        SubjectPort(other).act("walk", event_id="old-bedroom",
+                               station="station:bedroom")
+        with self.assertRaises(Conflict):
+            historic.act("use_washroom", event_id="no-ensuite")
         self.assertTrue(historic.verify()["verified"])
 
     def test_opt_in_contract_follows_world_fork_without_inventing_old_deliveries(self):
@@ -155,6 +159,21 @@ class HouseholdCareTests(unittest.TestCase):
         with fork._open() as db:
             self.assertEqual(
                 db.execute("SELECT COUNT(*) FROM rhythm_events").fetchone()[0], 0)
+
+    def test_private_period_washroom_is_reachable_with_no_bladder_drain(self):
+        self.go_hall("to-washroom")
+        self.do("walk", "to-private-bedroom", station="station:bedroom")
+        available = self.choice("use_washroom")
+        self.assertIsNotNone(available)
+        before = self.clock.audit_state()
+        result = self.do("use_washroom", "ordinary-private-washroom")
+        self.assertIn("private washroom", result["subject"]["inner"])
+        after = self.clock.audit_state()
+        self.assertEqual(after["minute"] - before["minute"], 10)
+        self.assertEqual(after["supplies"], before["supplies"])
+        self.assertFalse("bladder" in after)
+        self.assertTrue(self.clock.verify()["verified"])
+        self.assertTrue(MaterialObjects(self.world).verify()["verified"])
 
     def test_welfare_hold_stops_long_sleep_loop_not_access_to_actual_food(self):
         pilot = FreeRoamPilot(self.world, "closed-loops")
