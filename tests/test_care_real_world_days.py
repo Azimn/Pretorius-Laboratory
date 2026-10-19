@@ -59,6 +59,14 @@ class FourDayRealCareWorldTests(unittest.TestCase):
                 self.do("draw_water")
             self.do("drink_water")
 
+    def advance_until(self, day, local_minute):
+        end = day * 1440 + local_minute
+        while end - self.clock.audit_state()["minute"] >= 10:
+            delta = end - self.clock.audit_state()["minute"]
+            step = min(240, (delta // 10) * 10)
+            self.seq += 1
+            self.clock.advance(step, event_id=f"care-clock-{self.seq:04d}")
+
     def meal(self, *, when_hunger=3):
         state = self.clock.audit_state()
         if state["hunger"] < when_hunger:
@@ -81,6 +89,9 @@ class FourDayRealCareWorldTests(unittest.TestCase):
         self.jump("station:hall")
         self.jump("station:kitchen")
         self.do("open", container="cupboard:kitchen")
+        # Water is drawn deliberately from a real fitted service. It is not
+        # auto-fed by the source clock or a host provisioning callback.
+        self.do("draw_water")
 
         for day in range(4):
             if day > 0:
@@ -96,13 +107,14 @@ class FourDayRealCareWorldTests(unittest.TestCase):
                 self.do("draw_water")
             self.water_until()
             self.meal()
-            # Morning to afternoon, in authenticated four-hour increments.
-            self.clock.advance(240, event_id=f"care-day-{day}-late-morning")
-            self.clock.advance(240, event_id=f"care-day-{day}-afternoon")
+            # Follow actual local clock time rather than accumulating
+            # extra hours from cooking, walking and hygiene each day.
+            self.advance_until(day, 14 * 60)
             self.water_until()
             self.meal(when_hunger=2)
-            self.clock.advance(240, event_id=f"care-day-{day}-evening")
-            self.clock.advance(240, event_id=f"care-day-{day}-night")
+            self.advance_until(day, 19 * 60)
+            self.water_until()
+            self.advance_until(day, 23 * 60)
             # Separate evening hydration before bed. It consumes actual water,
             # unlike a magic nightly "needs reset" event.
             self.water_until()
