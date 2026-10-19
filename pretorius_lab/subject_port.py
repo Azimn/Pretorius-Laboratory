@@ -75,6 +75,19 @@ class SubjectPort:
         with self.habitat._open() as db:
             bright = lit(db, station)
         if bright:
+            # Opt-in architectural fixtures are known, local, and visible.
+            # They are not random narrative objects invented by the renderer.
+            from .care_contract import valid as validated_care
+            with self.habitat._open() as db:
+                installed_care = validated_care(db) is not None
+            if installed_care and station == "station:kitchen":
+                parts.append(
+                    "I can see the kitchen's fixed drinking-water tap "
+                    "beside my household vessels.")
+            if installed_care and station == "station:bedroom":
+                parts.append(
+                    "I can see the door to the little private washroom "
+                    "beside my bedroom.")
             # v4: change only the rendering of source-backed, visible objects.
             # Both authoritative state owners remain unchanged.
             with self.habitat._open() as db:
