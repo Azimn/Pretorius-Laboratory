@@ -562,6 +562,11 @@ class SpatialHabitat:
             has_arrangements = arrangement_exists(source)
         if has_arrangements:
             HomeArrangements(self).verify()
+        from .personal_projects import PersonalProjects, exists as projects_exist
+        with self._open() as source:
+            has_projects = projects_exist(source)
+        if has_projects:
+            PersonalProjects(self).verify()
         parent = {
             "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
             "revision": m["revision"], "head_hash": m["head_hash"],
@@ -601,6 +606,8 @@ class SpatialHabitat:
             MaterialObjects(self)._fork_into(clone)
         if has_arrangements:
             HomeArrangements(self)._fork_into(clone)
+        if has_projects:
+            PersonalProjects(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:
