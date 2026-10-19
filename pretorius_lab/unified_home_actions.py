@@ -21,7 +21,7 @@ _EVENT_ID = re.compile(r"[A-Za-z0-9_-]{1,80}\Z")
 _BOOK_ACTS = {"open", "close", "read", "turn", "mark", "unmark", "open_mark"}
 _RHYTHM = {"advance", "light", "extinguish", "prepare_meal", "eat",
            "drink_water", "order_provisions", "collect_provisions",
-           "unpack_provisions",
+           "unpack_provisions", "use_washroom", "wash_hands",
            "brew_tea", "sleep", "rest", "clean", "experiment", "repair",
            "discard_meal", "write_paper", "read_paper"}
 
