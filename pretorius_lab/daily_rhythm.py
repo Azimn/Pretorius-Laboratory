@@ -68,6 +68,8 @@ FRESH_INITIAL_DIGEST = digest(FRESH_INITIAL)
 PAPER_INITIAL = {**initial_state(), "meal_prepared_minute": None, "paper_marks": []}
 PAPER_INITIAL_DIGEST = digest(PAPER_INITIAL)
 CARE_INITIAL = {**copy.deepcopy(PAPER_INITIAL),
+                "lamps": {**copy.deepcopy(PAPER_INITIAL["lamps"]), "room:washroom": 0},
+                "washroom": {"visits": 0, "washed": 0},
                 "household_supply": {"ordered_minute": None,
                                      "parcel": "none", "orders": 0,
                                      "delivered": 0, "unpacked": 0}}
@@ -94,7 +96,7 @@ OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
               "repair", "discard_meal", "write_paper", "read_paper",
               "order_provisions", "collect_provisions", "unpack_provisions",
-              "drink_water"}
+              "drink_water", "use_washroom", "wash_hands"}
 
 
 def _metadata(db):
@@ -224,7 +226,9 @@ def _validate(state: dict) -> None:
         for v in state["supplies"].values()
     ):
         raise Conflict("Invalid finite domestic supplies")
-    if set(state["lamps"]) != set(LAMPS) or any(
+    expected_lamps = set(LAMPS) | (
+        {"room:washroom"} if "household_supply" in state else set())
+    if set(state["lamps"]) != expected_lamps or any(
         type(v) is not int or not 0 <= v <= 60
         for v in state["lamps"].values()
     ):
@@ -255,6 +259,10 @@ def _validate(state: dict) -> None:
                     for note in marks)):
             raise Conflict("Physically written pages are malformed")
     if "household_supply" in state:
+        wc = state.get("washroom")
+        if (type(wc) is not dict or set(wc) != {"visits", "washed"}
+                or any(type(x) is not int or x < 0 for x in wc.values())):
+            raise Conflict("Invalid private washroom record")
         supply = state["household_supply"]
         if (type(supply) is not dict or set(supply) != {
                 "ordered_minute", "parcel", "orders", "delivered", "unpacked"}
@@ -294,7 +302,7 @@ def _pass_time(s: dict, minutes: int) -> None:
             supply["ordered_minute"] = None
             supply["parcel"] = "hall"
             supply["delivered"] += 1
-    for room in LAMPS:
+    for room in s["lamps"]:
         s["lamps"][room] = max(0, s["lamps"][room] - minutes)
     s["hunger"] = min(10, s["hunger"] + after // 180 - before // 180)
     s["thirst"] = min(10, s["thirst"] + after // 120 - before // 120)
@@ -344,6 +352,8 @@ def _perceive(s: dict, station: str) -> str:
             sentence += " A provisioner's parcel has been left inside my entrance."
         elif parcel == "carried":
             sentence += " I am carrying the provisioner's parcel."
+    if room == "room:washroom":
+        sentence += " I have privacy here, with a screened sanitary closet and washstand."
     if room == "room:shop" and _can_see(s, room):
         sentence += " The little shop is hardly fit for trade."
     return sentence
@@ -493,6 +503,23 @@ def transition(state: dict, op: str, args: dict, station: str, *,
         _pass_time(new, 20)
         new["thirst"] = max(0, new["thirst"] - 4)
         inner = "I prepare and drink tea. The warmth is welcome."
+    elif op == "use_washroom":
+        if "household_supply" not in new:
+            raise LabError("A private washroom is not available in this household")
+        if args or station != "station:washroom":
+            raise Conflict("I need to go into my separate private washroom")
+        new["washroom"]["visits"] += 1
+        _pass_time(new, 5)
+        inner = "I use the private sanitary closet and attend to my needs."
+    elif op == "wash_hands":
+        if "household_supply" not in new:
+            raise LabError("There is no supported domestic washstand")
+        if args or station != "station:washroom" or new["supplies"]["water"] <= 0:
+            raise Conflict("I need the washstand and actual stored water")
+        new["supplies"]["water"] -= 1
+        new["washroom"]["washed"] += 1
+        _pass_time(new, 5)
+        inner = "I wash my hands at the washstand and dry them."
     elif op == "drink_water":
         if "household_supply" not in new:
             raise LabError("Plain-water drinking requires the safe residency profile")
