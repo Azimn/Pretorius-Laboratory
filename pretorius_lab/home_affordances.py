@@ -174,6 +174,14 @@ class HomeAffordances:
                 continue
             add(op, {}, "I could " + phrase + ".")
 
+        # An ordinary delivery is a real dated supplier handoff, never a
+        # timed refill of the pantry. The Doctor must collect it himself.
+        from .daily_rhythm import available_delivery_day
+        with self.subject.habitat._open() as db:
+            available_day = available_delivery_day(db, station)
+        if available_day is not None:
+            add("accept_delivery", {"day": available_day},
+                "I could collect the household provisions left in the entrance hall.")
         # A freeform paper offer contains no precomposed text. The sample
         # text is used ONLY for pure reducer availability testing and is
         # never executed, recorded or disclosed as the subject's own words.
