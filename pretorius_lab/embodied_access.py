@@ -135,6 +135,7 @@ def _scene(db, host: dict, station: str) -> dict:
         "room:hall": ["a narrow passage", "the laboratory door", "domestic rooms"],
         "room:kitchen": ["stove", "kitchen table", "cupboard"],
         "room:bedroom": ["bedstead", "wardrobe", "bedside drawer"],
+        "room:washroom": ["washstand", "private washroom door"],
         "room:parlor": ["armchair", "writing desk"],
         "room:shop": ["small display counter", "front window", "a dividing curtain"],
     }
