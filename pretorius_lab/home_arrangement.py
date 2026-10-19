@@ -11,7 +11,7 @@ import copy
 import json
 import uuid
 
-from .daily_rhythm import DailyRhythm, PAPER_RULES, _can_see
+from .daily_rhythm import DailyRhythm, PAPER_RULES, CARE_RULES, _can_see
 from .embodied_access import EmbodiedAccess, STATIONS
 from .habitat_v2 import SpatialHabitat
 from .home_life import HomeLife
@@ -126,7 +126,7 @@ class HomeArrangements:
             daily = meta(db, "rhythm_meta")
             home = meta(db, "domestic_meta")
             world = SpatialHabitat._metadata(db)
-            if daily["rules"] != PAPER_RULES:
+            if daily["rules"] not in (PAPER_RULES, CARE_RULES):
                 raise LabError("Furniture arrangements need the existing v5 lived home")
             seed = copy.deepcopy(initial_state if initial_state is not None else START)
             validate(seed)
