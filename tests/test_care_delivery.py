@@ -174,6 +174,16 @@ class HouseholdCareTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertIn("Welfare hold", result["reason"])
         self.assertEqual(self.clock.audit_state()["minute"], time_before)
+        # Unlike aimless time-skipping, short fatigue recovery allows him
+        # to regain the ability to prepare food. Don't block his only remedy.
+        self.assertTrue(assess(self.world)["recovery_rest_needed"])
+        relief = next(o for o in pilot.observe()["host"]["offers"]
+                      if o["command"] == "rest")
+        rested = pilot.act(
+            turn_id="necessary-recovery-rest", intention="I need a short rest.",
+            offer_id=relief["offer_id"], event_id="rest-to-recover")
+        self.assertEqual(rested["status"], "committed")
+        self.assertLess(self.clock.audit_state()["fatigue"], 10)
         self.do("walk", "back-to-hall", station="station:hall")
         self.assertIsNotNone(self.choice("accept_delivery", day=2))
         self.do("accept_delivery", "get-relief", day=2)
