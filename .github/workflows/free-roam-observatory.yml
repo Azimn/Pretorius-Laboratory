@@ -25,5 +25,7 @@ jobs:
           python-version: '${{ matrix.python }}'
       - name: Shadow free-roam actual material source and barrier safety
         run: python -m unittest discover -s tests -p test_free_roam_pilot.py -v
+      - name: Exercise manual sandbox CLI
+        run: python tools/run_free_roam_manual.py --help
       - name: Retest complete persistent Laboratory
         run: python -m unittest discover -s tests -v
