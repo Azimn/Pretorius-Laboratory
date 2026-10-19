@@ -100,7 +100,8 @@ def historic_days(db):
                 clock["rules"] == PAPER_RULES and care is not None
                 and type(delivery_day) is int
                 and delivery_day > care["installed_at_minute"] // 1440
-                and delivery_day not in delivered_days))
+                and delivery_day not in delivered_days),
+            care_authorized=care is not None)
         if e["op"] == "accept_delivery":
             delivered_days.add(delivery_day)
         if digest(new) != e["after_digest"] or subjective != e["subject"]:
