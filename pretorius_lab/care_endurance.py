@@ -63,10 +63,12 @@ def simulate(*, days=30, missed_delivery_days=()):
                 act("draw_water", "station:kitchen")
             act("drink_water", "station:kitchen")
 
-    def meal_if_needed():
+    def meal_if_needed(threshold=4):
         # Kitchen cleanliness/ fatigue are genuine constraints; do not
         # bypass them or secretly reset their values.
-        if state["hunger"] < 4:
+        # An afternoon meal around 14:00 prevents a hungry morning after
+        # eight hours of sleep, rather than letting need meters pin.
+        if state["hunger"] < threshold:
             return
         if state["fatigue"] >= 9:
             act("rest", "station:bedroom")
@@ -94,7 +96,7 @@ def simulate(*, days=30, missed_delivery_days=()):
         meal_if_needed()
         until(14 * 60)
         drink_until()
-        meal_if_needed()
+        meal_if_needed(threshold=2)
         until(19 * 60)
         drink_until()
         until(23 * 60)
