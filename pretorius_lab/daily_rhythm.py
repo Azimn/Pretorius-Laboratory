@@ -112,11 +112,14 @@ def available_delivery_day(db, station):
     if station != "station:hall":
         return None
     m = _metadata(db)
-    if m.get("rules") != PAPER_RULES:
+    from .care_contract import valid as validated_care
+    care = validated_care(db)
+    if m.get("rules") != PAPER_RULES or care is None:
         return None
     minute = m["state"]["minute"]
     day = minute // 1440
-    if day < 1 or minute % 1440 < 360:
+    if (day < 1 or day <= care["installed_at_minute"] // 1440
+            or minute % 1440 < 360):
         return None
     for (raw,) in db.execute("SELECT envelope FROM rhythm_events"):
         e = json.loads(raw)
@@ -669,6 +672,8 @@ class DailyRhythm:
             home_states = (_home_snapshots(db) if m["rules"] in (
                 STOCK_RULES, VISIBLE_RULES, PAPER_RULES) else None)
             last_body, last_home = m["body_at_install"], m["home_at_install"]
+            from .care_contract import valid as validated_care
+            care = validated_care(db)
             delivery_days = set()
             for n, event_id, encoded, prior, h in db.execute(
                 "SELECT revision,event_id,envelope,prev_hash,event_hash "
@@ -698,7 +703,9 @@ class DailyRhythm:
                          if m["rules"] == PAPER_RULES else None)
                 delivery_day = e["args"].get("day") if e["op"] == "accept_delivery" else None
                 delivery_authorized = (
-                    m["rules"] == PAPER_RULES and type(delivery_day) is int
+                    m["rules"] == PAPER_RULES and care is not None
+                    and type(delivery_day) is int
+                    and delivery_day > care["installed_at_minute"] // 1440
                     and delivery_day not in delivery_days)
                 result, subjective = transition(
                     seed, e["op"], e["args"], station,
@@ -748,9 +755,13 @@ class DailyRhythm:
                     prev = json.loads(raw)
                     if prev["op"] == "accept_delivery":
                         claimed_days.add(prev["args"]["day"])
+            from .care_contract import valid as validated_care
+            care = validated_care(db)
             delivery_authorized = (
                 op == "accept_delivery" and m["rules"] == PAPER_RULES
+                and care is not None
                 and type(args.get("day")) is int
+                and args["day"] > care["installed_at_minute"] // 1440
                 and args["day"] not in claimed_days)
             after, subjective = transition(
                 m["state"], op, args, body["station"],
