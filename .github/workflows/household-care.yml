@@ -1,0 +1,43 @@
+name: No Open Drains — Household Care and Standing Delivery
+on:
+  push:
+    branches: [experiment/closed-loop-care-deliveries-20261019]
+  pull_request:
+    paths:
+      - pretorius_lab/daily_rhythm.py
+      - pretorius_lab/home_affordances.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/unified_home_actions.py
+      - pretorius_lab/material_objects.py
+      - pretorius_lab/care_safety.py
+      - pretorius_lab/care_endurance.py
+      - tests/test_care_endurance.py
+      - tests/test_care_real_world_days.py
+      - pretorius_lab/care_contract.py
+      - pretorius_lab/free_roam_pilot.py
+      - tests/test_care_delivery.py
+      - .github/workflows/household-care.yml
+  workflow_dispatch:
+jobs:
+  household-care:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11','3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Finite closed-loop care, no fake parcel, no distress treadmill
+        run: python -m unittest discover -s tests -p test_care_delivery.py -v
+      - name: Thirty-day reducer reference with missed deliveries
+        run: python -m unittest discover -s tests -p test_care_endurance.py -v
+      - name: Actual material-world four-day interrupted food and water continuity
+        run: python -m unittest discover -s tests -p test_care_real_world_days.py -v
+      - name: Check stand-in CLI self-contained entrypoint
+        run: python tools/run_free_roam_manual.py --help
+      - name: All original Laboratory + free roam
+        run: python -m unittest discover -s tests -v

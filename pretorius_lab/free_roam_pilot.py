@@ -52,13 +52,15 @@ class FreeRoamPilot:
         """Only first-person prose is perceivable; host has separate offer IDs."""
         frame = self.subject.observe()
         offers = self.actions.discover()
+        from .care_safety import assess
         return {
             "subject": {
                 "inner": frame["inner"] + " " + offers["subject_frame"]["inner"],
                 "spoken_aloud": None,
             },
             "host": {"world_stamp": offers["world_stamp"],
-                     "offers": offers["offers"]},
+                     "offers": offers["offers"],
+                     "care_review": assess(self.world)},
         }
 
     def _read(self, db, turn_id):
@@ -127,6 +129,19 @@ class FreeRoamPilot:
             return self._update({**rec, "status": "blocked",
                                  "reason": "Action offer expired or was never valid"})
         source_table = selected["source_domain"]
+        # No endless sleep/fast-forward loop while unmet basic needs are
+        # already at a severe level. Pause the unattended run; physical
+        # water, kitchen and supplier choices remain available.
+        if selected["command"] in {"sleep", "advance", "rest"}:
+            from .care_safety import assess
+            welfare = assess(self.world)
+            if welfare["pause_unattended_time"] and not (
+                    selected["command"] == "rest"
+                    and welfare["recovery_rest_needed"]):
+                return self._update({
+                    **rec, "status": "blocked",
+                    "reason": welfare["reason"],
+                })
         if source_table not in DOMAINS:
             raise LabError("Source table missing from pilot allowlist")
         rec = {**rec, "source_table": source_table,

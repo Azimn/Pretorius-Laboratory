@@ -65,9 +65,29 @@ class SubjectPort:
         # darkness. The first-person rhythm description remains accessible.
         first = self.rhythm.look()
         parts = [first["inner"]]
+        from .daily_rhythm import available_delivery_day
+        with self.habitat._open() as db:
+            delivery_day = available_delivery_day(db, station)
+        if delivery_day is not None:
+            parts.append(
+                "I notice the ordinary morning provisions by the hall entry, "
+                "left through my standing arrangement with the local supplier.")
         with self.habitat._open() as db:
             bright = lit(db, station)
         if bright:
+            # Opt-in architectural fixtures are known, local, and visible.
+            # They are not random narrative objects invented by the renderer.
+            from .care_contract import valid as validated_care
+            with self.habitat._open() as db:
+                installed_care = validated_care(db) is not None
+            if installed_care and station == "station:kitchen":
+                parts.append(
+                    "I can see the kitchen's fixed drinking-water tap "
+                    "beside my household vessels.")
+            if installed_care and station == "station:bedroom":
+                parts.append(
+                    "I can see the door to the little private washroom "
+                    "beside my bedroom.")
             # v4: change only the rendering of source-backed, visible objects.
             # Both authoritative state owners remain unchanged.
             with self.habitat._open() as db:
@@ -158,6 +178,7 @@ class SubjectPort:
             "advance", "light", "extinguish", "prepare_meal", "eat",
             "brew_tea", "sleep", "rest", "clean", "experiment", "repair",
             "discard_meal", "write_paper", "read_paper",
+            "drink_water", "draw_water", "accept_delivery", "use_washroom",
         }:
             outcome = self.rhythm.act(command, event_id=event_id, **args)
             if command == "advance":

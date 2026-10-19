@@ -22,6 +22,9 @@ from .subject_port import SubjectPort
 _DOMESTIC_OPERATIONS = ("open", "close", "take", "put")
 _RHYTHM_OPERATIONS = {
     "brew_tea": "brew a cup of tea",
+    "drink_water": "drink a cup of fresh water",
+    "draw_water": "draw fresh water from the kitchen tap into my household vessels",
+    "use_washroom": "use the private washroom next to my bedroom",
     "prepare_meal": "prepare a simple meal",
     "eat": "eat the meal I have prepared",
     "rest": "rest for a while",
@@ -74,11 +77,17 @@ class HomeAffordances:
             has_room_changes = arrangement_exists(db)
         arranged = (HomeArrangements(self.subject.habitat).audit_state()
                     if has_room_changes else None)
+        # A newly installed care policy changes which material actions
+        # genuinely exist. It must invalidate old offers even when none of
+        # the physical stock counts or actor pose changed at installation.
+        from .care_contract import valid as validated_care
+        with self.subject.habitat._open() as db:
+            care = validated_care(db)
         stamp = digest({
             "world_epoch": self.subject.verify()["world_epoch"],
             "rhythm": state, "material": material, "station": station,
             "rules": rules, "dynamic_objects": new_objects,
-            "room_arrangements": arranged,
+            "room_arrangements": arranged, "care_contract": care,
         })
         return state, material, station, stamp
 
@@ -165,14 +174,25 @@ class HomeAffordances:
                             "I could put the " + item["name"] +
                             " in the " + container["name"] + ".")
 
+        from .care_contract import valid as validated_care
+        with self.subject.habitat._open() as db:
+            care_enabled = validated_care(db) is not None
         for op, phrase in _RHYTHM_OPERATIONS.items():
             try:
                 transition(state, op, {}, station, stock_access=stock,
-                           writing_access=writing)
+                           writing_access=writing, care_authorized=care_enabled)
             except (Conflict, LabError):
                 continue
             add(op, {}, "I could " + phrase + ".")
 
+        # An ordinary delivery is a real dated supplier handoff, never a
+        # timed refill of the pantry. The Doctor must collect it himself.
+        from .daily_rhythm import available_delivery_day
+        with self.subject.habitat._open() as db:
+            available_day = available_delivery_day(db, station)
+        if available_day is not None:
+            add("accept_delivery", {"day": available_day},
+                "I could collect the household provisions left in the entrance hall.")
         # A freeform paper offer contains no precomposed text. The sample
         # text is used ONLY for pure reducer availability testing and is
         # never executed, recorded or disclosed as the subject's own words.

@@ -567,6 +567,11 @@ class SpatialHabitat:
             has_projects = projects_exist(source)
         if has_projects:
             PersonalProjects(self).verify()
+        from .care_contract import HouseholdCareContract, exists as care_exists
+        with self._open() as source:
+            has_care = care_exists(source)
+        if has_care:
+            HouseholdCareContract(self).verify()
         parent = {
             "lab_id": m["lab_id"], "world_epoch": m["world_epoch"],
             "revision": m["revision"], "head_hash": m["head_hash"],
@@ -608,6 +613,8 @@ class SpatialHabitat:
             HomeArrangements(self)._fork_into(clone)
         if has_projects:
             PersonalProjects(self)._fork_into(clone)
+        if has_care:
+            HouseholdCareContract(self)._fork_into(clone)
         return clone.verify()
 
     def _verified_status(self) -> dict:

@@ -81,17 +81,29 @@ def historic_days(db):
     clock = meta(db, "rhythm_meta")
     homes = _home_snapshots(db)
     state = copy.deepcopy(clock["genesis"])
+    from .care_contract import valid as validated_care
+    care = validated_care(db)
     series = {0: state}
+    delivered_days = set()
     for n, payload in db.execute(
             "SELECT revision,envelope FROM rhythm_events ORDER BY revision"):
         e = json.loads(payload)
         if n != len(series) or digest(state) != e["before_digest"]:
             raise Conflict("Missing historical world clock revision")
         home = homes[e["home_revision"]]
+        delivery_day = e["args"].get("day") if e["op"] == "accept_delivery" else None
         new, subjective = daily_transition(
             state, e["op"], e["args"], e["station"],
             stock_access=_stock_access(home, e["station"]),
-            writing_access=_writing_access(home, e["station"]))
+            writing_access=_writing_access(home, e["station"]),
+            delivery_authorized=(
+                clock["rules"] == PAPER_RULES and care is not None
+                and type(delivery_day) is int
+                and delivery_day > care["installed_at_minute"] // 1440
+                and delivery_day not in delivered_days),
+            care_authorized=care is not None)
+        if e["op"] == "accept_delivery":
+            delivered_days.add(delivery_day)
         if digest(new) != e["after_digest"] or subjective != e["subject"]:
             raise Conflict("World-clock history has been rewritten")
         series[n] = new
