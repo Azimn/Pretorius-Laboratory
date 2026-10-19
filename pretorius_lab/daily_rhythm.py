@@ -96,7 +96,7 @@ OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
               "repair", "discard_meal", "write_paper", "read_paper",
               "order_provisions", "collect_provisions", "unpack_provisions",
-              "drink_water", "use_washroom", "wash_hands"}
+              "drink_water", "eat_bread", "use_washroom", "wash_hands"}
 
 
 def _metadata(db):
@@ -520,6 +520,17 @@ def transition(state: dict, op: str, args: dict, station: str, *,
         new["washroom"]["washed"] += 1
         _pass_time(new, 5)
         inner = "I wash my hands at the washstand and dry them."
+    elif op == "eat_bread":
+        if "household_supply" not in new:
+            raise LabError("Simple uncooked food is not available under these rules")
+        if args or station != STATION_KITCHEN or new["supplies"]["rations"] <= 0:
+            raise Conflict("I need a real portion of bread in my kitchen")
+        if stock_access is None or not stock_access["meal"]:
+            raise Conflict("I cannot reach the actual bread provisions")
+        new["supplies"]["rations"] -= 1
+        _pass_time(new, 10)
+        new["hunger"] = max(0, new["hunger"] - 4)
+        inner = "I take some bread from my stores and eat it. I feel less hungry."
     elif op == "drink_water":
         if "household_supply" not in new:
             raise LabError("Plain-water drinking requires the safe residency profile")
