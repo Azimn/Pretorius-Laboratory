@@ -12,6 +12,7 @@ on:
       - pretorius_lab/care_safety.py
       - pretorius_lab/care_endurance.py
       - tests/test_care_endurance.py
+      - tests/test_care_real_world_days.py
       - pretorius_lab/care_contract.py
       - pretorius_lab/free_roam_pilot.py
       - tests/test_care_delivery.py
@@ -34,6 +35,8 @@ jobs:
         run: python -m unittest discover -s tests -p test_care_delivery.py -v
       - name: Thirty-day reducer reference with missed deliveries
         run: python -m unittest discover -s tests -p test_care_endurance.py -v
+      - name: Actual material-world four-day interrupted food and water continuity
+        run: python -m unittest discover -s tests -p test_care_real_world_days.py -v
       - name: Check stand-in CLI self-contained entrypoint
         run: python tools/run_free_roam_manual.py --help
       - name: All original Laboratory + free roam
