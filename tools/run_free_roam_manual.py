@@ -51,6 +51,7 @@ def main():
         from pretorius_lab.material_objects import MaterialObjects
         from pretorius_lab.home_arrangement import HomeArrangements
         from pretorius_lab.personal_projects import PersonalProjects
+        from pretorius_lab.care_contract import HouseholdCareContract
         args.world.parent.mkdir(parents=True, exist_ok=True)
         home = SpatialHabitat.create(args.world)
         HomeLife(home).initialize()
@@ -60,6 +61,7 @@ def main():
         MaterialObjects(home).initialize()
         HomeArrangements(home).initialize()
         PersonalProjects(home).initialize()
+        HouseholdCareContract(home).initialize()
     if not args.world.is_file():
         p.error("Provide an existing sandbox or --create-sandbox")
     pilot = FreeRoamPilot(SpatialHabitat(args.world), args.session)
