@@ -34,7 +34,13 @@ There is no automatic task forcing, API key, model choice, score optimizer, envi
 
 ## How to use it without API charges
 
-Use `tools/run_free_roam_manual.py` against **an explicitly experimental existing sandbox database**, with `--experimental-world` and a session ID. The tool reads JSON lines (see its header for the documented command format) and returns **two distinct channels**:
+Use `tools/run_free_roam_manual.py` against an explicitly experimental database, with `--experimental-world` and a session ID. To create an isolated sandbox from scratch without overwriting any existing database, pass `--create-sandbox` and a new file path. The script refuses an existing path when creating. Example (from the repository checkout):
+
+```sh
+python tools/run_free_roam_manual.py --world pilot-home.sqlite3 --session first-evening --experimental-world --create-sandbox
+```
+
+Inside that interactive session submit `{"op":"observe"}` to obtain separate first-person and host-only views. Each physical action request must include a current host-issued `offer_id`, an intentional `turn_id` and an `event_id`. To report a model wish for something the world does not support, submit an `unsupported` turn instead of a fabricated receipt. A later invocation omits `--create-sandbox` and uses the same world and session ID to resume. The tool reads JSON lines (see its header for the documented command format) and returns **two distinct channels**:
 
 1. `subject.inner`: first-person natural-language experience suitable to present to a ChatGPT stand-in. It includes real observed situation and optional possibilities in ordinary language. No raw state IDs, stock counters, source hashes or database paths should enter its first-person experience.
 2. `host.offers`: engineering-only exact issued action IDs/args. The human or host program resolves the stand-in's natural language choice to one of these, without leaking the IDs to the character.
