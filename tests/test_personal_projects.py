@@ -224,7 +224,7 @@ class ProspectiveProjectsTests(unittest.TestCase):
         self.do("book", "turn-other-page", book_id="book:007",
                 operation="turn", direction=1)
         self.do("book", "mark-other-page", book_id="book:007",
-                operation="mark", bookmark_id="flag-seven-days")
+                operation="mark", bookmark_id="page-flag-1")
         self.do("book", "close-other-reading", book_id="book:007",
                 operation="close")
         self.do("walk", "week-center-again", station="station:center")
@@ -245,7 +245,7 @@ class ProspectiveProjectsTests(unittest.TestCase):
                          7 * 24 * 60)
         self.assertEqual(self.clock.audit_state()["experiments"], 1)
         self.assertEqual(books.catalog("book:007")["book:007"]["bookmarks"],
-                         {"flag-seven-days": 2})
+                         {"page-flag-1": 2})
         self.assertEqual(self.clock.audit_state()["paper_marks"],
                          ["Other ideas occurred to me while work remained unfinished."])
         self.assertEqual(restarted.verify()["revision"], 3)
