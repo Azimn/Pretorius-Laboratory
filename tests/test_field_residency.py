@@ -40,8 +40,8 @@ class ChatGPTResidencyPilotTests(unittest.TestCase):
         return self.trial.attempt(choices[0], event_id=eid, subject_text=text)
 
     def parlor(self):
-        self.choose("I could walk toward the hall", "hallway-step")
-        self.choose("I could walk toward the parlor", "parlor-step")
+        self.choose("I could walk toward the narrow passage", "hallway-step")
+        self.choose("I could walk toward my sitting room", "parlor-step")
 
     def test_only_natural_world_frame_crosses_into_renderer(self):
         first = self.trial.packet()
