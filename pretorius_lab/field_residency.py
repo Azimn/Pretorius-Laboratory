@@ -248,6 +248,35 @@ class ResidencyTrial:
         return [r["details"] for r in self.journal.verify()
                 if r["kind"] == "barrier"]
 
+    def _verify_original_authority(self, domain):
+        """Validate an actual domain history, not just a plausible hash."""
+        if domain == "books_events":
+            from .book_library import BookLibrary
+            BookLibrary(self.world).verify()
+        elif domain == "project_events":
+            from .personal_projects import PersonalProjects
+            PersonalProjects(self.world).verify()
+        elif domain == "arrangement_events":
+            from .home_arrangement import HomeArrangements
+            HomeArrangements(self.world).verify()
+        elif domain == "botanical_events":
+            from .material_objects import MaterialObjects
+            MaterialObjects(self.world).verify()
+        elif domain == "domestic_events":
+            from .home_life import HomeLife
+            HomeLife(self.world).verify()
+        elif domain == "rhythm_events":
+            from .daily_rhythm import DailyRhythm
+            DailyRhythm(self.world).verify()
+        elif domain == "embodied_events":
+            from .embodied_access import EmbodiedAccess
+            EmbodiedAccess(self.world).verify()
+        elif domain == "custody_events":
+            from .book_custody import BookCustody
+            BookCustody(self.world).verify()
+        else:
+            raise Conflict("No verifier for this event-domain authority")
+
     def reconcile(self):
         """Detect interrupted commits without rerunning any material action.
 
@@ -282,6 +311,9 @@ class ResidencyTrial:
                     continue
                 if digest(json.loads(row[0])) != row[1]:
                     raise Conflict("A recovered physical source receipt was altered")
+                # The original domain must independently replay its entire
+                # event history before a sidecar recovery is accepted.
+                self._verify_original_authority(domain)
                 proof = {"event_id": item["event_id"],
                          "source_table": domain, "source_event_hash": row[1],
                          "status": "physically_committed_but_delivery_unconfirmed"}
