@@ -22,7 +22,7 @@ _BOOK_ACTS = {"open", "close", "read", "turn", "mark", "unmark", "open_mark"}
 _RHYTHM = {"advance", "light", "extinguish", "prepare_meal", "eat",
            "brew_tea", "sleep", "rest", "clean", "experiment", "repair",
            "discard_meal", "write_paper", "read_paper",
-           "drink_water", "accept_delivery"}
+           "drink_water", "accept_delivery", "use_washroom"}
 
 
 def _event_table(command):
