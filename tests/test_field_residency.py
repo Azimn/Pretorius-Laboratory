@@ -80,6 +80,10 @@ class ChatGPTResidencyPilotTests(unittest.TestCase):
 
     def test_unusual_furniture_request_commits_real_change_across_next_day(self):
         self.parlor()
+        possibilities = self.trial.packet()["possible_activities"]
+        self.assertIn("I could move the upholstered reading chair beside the window.",
+                      possibilities)
+        self.assertIn("near the fireplace", self.trial.packet()["first_person_world"])
         outcome = self.trial.attempt(
             "Move the chair by the window", event_id="residency-chair")
         self.assertEqual(outcome["status"], "committed")
