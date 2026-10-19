@@ -94,6 +94,11 @@ class HouseholdCareTests(unittest.TestCase):
         self.assertIsNone(self.choice("accept_delivery", day=1))
         with self.assertRaises(Conflict):
             self.clock.act("accept_delivery", event_id="duplicate-day1", day=1)
+        # Real fatigue is independent of food inventory. Returning home
+        # after a whole day may require rest before further kitchen work.
+        self.do("walk", "care-to-bedroom", station="station:bedroom")
+        self.do("rest", "care-rest")
+        self.do("walk", "care-return-hall", station="station:hall")
         self.do("walk", "back-to-kitchen", station="station:kitchen")
         self.assertIsNotNone(self.choice("brew_tea"))
         self.do("brew_tea", "tea-after-real-restock")
