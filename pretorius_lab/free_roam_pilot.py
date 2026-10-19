@@ -216,11 +216,19 @@ class FreeRoamPilot:
         """Only a nonmaterial SHADOW note, not authenticated Doctor perception."""
         if kind not in {"ambient_impression", "private_thought", "conversation"}:
             raise LabError("Narrative category must be nonmaterial")
+        # Soft experiential prose can be offered to the external stand-in
+        # without claiming any physically changed objects or Doctor memories.
+        # Enforce the first-person interface, not semantic physical truth.
+        first_person = valid_text(text)
+        if not first_person.startswith(("I ", "My ", "Mine ", "Me ")):
+            raise LabError("Even a soft event must be natural first-person experience")
         rec, _ = self._begin(turn_id, {
-            "kind": kind, "intention": valid_text(text),
+            "kind": kind, "intention": first_person,
             "offer_id": None, "event_id": None, "text": None,
             "status": "narrative_only",
-            "reason": "Stand-in prose, not a verified world event",
+            "subject": {"inner": first_person, "spoken_aloud": None},
+            "source_class": "external_author_unverified_nonmaterial",
+            "reason": "Optional soft stand-in experience, not physical evidence",
             "receipt": None,
         })
         return rec
