@@ -22,6 +22,7 @@ from .subject_port import SubjectPort
 _DOMESTIC_OPERATIONS = ("open", "close", "take", "put")
 _RHYTHM_OPERATIONS = {
     "brew_tea": "brew a cup of tea",
+    "drink_water": "drink a cup of fresh water",
     "prepare_meal": "prepare a simple meal",
     "eat": "eat the meal I have prepared",
     "rest": "rest for a while",
