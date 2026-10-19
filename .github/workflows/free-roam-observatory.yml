@@ -1,0 +1,29 @@
+name: ChatGPT Stand-in Free-Roam Observatory
+on:
+  push:
+    branches:
+      - experiment/standin-free-roam-observatory-20261019
+  pull_request:
+    paths:
+      - pretorius_lab/free_roam_pilot.py
+      - tests/test_free_roam_pilot.py
+      - tools/run_free_roam_manual.py
+      - .github/workflows/free-roam-observatory.yml
+  workflow_dispatch:
+jobs:
+  source-honest-free-roam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11','3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Shadow free-roam actual material source and barrier safety
+        run: python -m unittest discover -s tests -p test_free_roam_pilot.py -v
+      - name: Retest complete persistent Laboratory
+        run: python -m unittest discover -s tests -v
