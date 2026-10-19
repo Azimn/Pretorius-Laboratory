@@ -17,6 +17,8 @@ def assess(habitat):
         from .embodied_access import EmbodiedAccess
         station = EmbodiedAccess(habitat).verify()["station"]
         delivery = available_delivery_day(db, station)
+        from .care_contract import valid as validated_care
+        fixed_water_available = validated_care(db) is not None
     urgent = state["thirst"] >= 8 or state["hunger"] >= 9
     return {
         "pause_unattended_time": urgent,
@@ -31,8 +33,10 @@ def assess(habitat):
         ],
         "available_resources": {
             "water_exists": supplies["water"] > 0,
+            "fixed_water_service_installed": fixed_water_available,
             "food_exists": supplies["rations"] > 0 and
-                           supplies["fuel"] > 0 and supplies["water"] > 0,
+                           supplies["fuel"] > 0 and
+                           (supplies["water"] > 0 or fixed_water_available),
             "delivery_collectible_here": delivery is not None,
         },
         "reason": (
