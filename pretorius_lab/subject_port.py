@@ -165,6 +165,7 @@ class SubjectPort:
             "advance", "light", "extinguish", "prepare_meal", "eat",
             "brew_tea", "sleep", "rest", "clean", "experiment", "repair",
             "discard_meal", "write_paper", "read_paper",
+            "drink_water", "accept_delivery",
         }:
             outcome = self.rhythm.act(command, event_id=event_id, **args)
             if command == "advance":
