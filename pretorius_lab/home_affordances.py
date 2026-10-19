@@ -11,7 +11,7 @@ It does not add generic object creation, historical migration, or an agent.
 from __future__ import annotations
 
 from .daily_rhythm import (
-    DailyRhythm, PAPER_RULES, _stock_access, _writing_access,
+    DailyRhythm, PAPER_RULES, CARE_RULES, _stock_access, _writing_access,
     _can_see, transition,
 )
 from .embodied_access import EmbodiedAccess, STATIONS
@@ -22,6 +22,10 @@ from .subject_port import SubjectPort
 _DOMESTIC_OPERATIONS = ("open", "close", "take", "put")
 _RHYTHM_OPERATIONS = {
     "brew_tea": "brew a cup of tea",
+    "drink_water": "drink plain water from my cup",
+    "order_provisions": "order more provisions from my supplier",
+    "collect_provisions": "collect the parcel waiting in the hall",
+    "unpack_provisions": "unpack the delivered provisions in my kitchen",
     "prepare_meal": "prepare a simple meal",
     "eat": "eat the meal I have prepared",
     "rest": "rest for a while",
@@ -59,7 +63,7 @@ class HomeAffordances:
             import json
             rules = json.loads(row[0])
         # This prototype is intentionally limited to the existing v5 world.
-        if rules != PAPER_RULES:
+        if rules not in (PAPER_RULES, CARE_RULES):
             raise LabError("Discoverable household prototype requires v5 physical-paper rules")
         state = self.rhythm.audit_state()
         material = self.home.audit_state()
