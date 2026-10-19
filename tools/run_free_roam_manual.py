@@ -1,7 +1,7 @@
 """Manual free-roam session: one JSON command per line, no model API.
 
 Usage:
- python tools/run_free_roam_manual.py --world SANDBOX.sqlite3 --session first-evening --experimental-world
+ python tools/run_free_roam_manual.py --world SANDBOX.sqlite3 --session first-evening --experimental-world --create-sandbox
 
 Input commands (on stdin):
  {"op":"observe"}
@@ -31,12 +31,31 @@ def main():
     p.add_argument("--world", type=Path, required=True)
     p.add_argument("--session", required=True)
     p.add_argument("--experimental-world", action="store_true",
-                   help="Affirm that the DB is an expendable Laboratory sandbox")
+                   help="Affirm that this is an expendable sandbox, not an inhabited DB")
+    p.add_argument("--create-sandbox", action="store_true",
+                   help="Create a brand-new isolated Laboratory at the requested missing path")
     args = p.parse_args()
     if not args.experimental_world:
         p.error("Explicit --experimental-world confirmation required")
+    if args.create_sandbox and args.world.exists():
+        p.error("Refusing to overwrite an existing physical world")
+    if args.create_sandbox:
+        from pretorius_lab.home_life import HomeLife
+        from pretorius_lab.daily_rhythm import DailyRhythm
+        from pretorius_lab.material_objects import MaterialObjects
+        from pretorius_lab.home_arrangement import HomeArrangements
+        from pretorius_lab.personal_projects import PersonalProjects
+        args.world.parent.mkdir(parents=True, exist_ok=True)
+        home = SpatialHabitat.create(args.world)
+        HomeLife(home).initialize()
+        DailyRhythm(home).initialize(
+            perishable_meals=True, physical_provisions=True,
+            visible_portions=True, physical_paper=True)
+        MaterialObjects(home).initialize()
+        HomeArrangements(home).initialize()
+        PersonalProjects(home).initialize()
     if not args.world.is_file():
-        p.error("World must already exist. Do not bootstrap an inhabited world here.")
+        p.error("Provide an existing sandbox or --create-sandbox")
     pilot = FreeRoamPilot(SpatialHabitat(args.world), args.session)
     print(json.dumps({"schema": "shadow-free-roam/1",
                       "message": "Input one JSON object per line. No model is running."}))
