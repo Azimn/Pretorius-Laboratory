@@ -1,0 +1,30 @@
+name: Subject-owned Persistent Projects
+on:
+  push:
+    branches: [experiment/lived-project-continuity-20261018]
+  pull_request:
+    paths:
+      - pretorius_lab/personal_projects.py
+      - pretorius_lab/subject_port.py
+      - pretorius_lab/unified_home_actions.py
+      - pretorius_lab/habitat_v2.py
+      - tests/test_personal_projects.py
+      - .github/workflows/personal-projects.yml
+  workflow_dispatch:
+jobs:
+  project-continuity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Subject chosen project start pause resume and verified evidence
+        run: python -m unittest discover -s tests -p test_personal_projects.py -v
+      - name: Existing Laboratory real world regression
+        run: python -m unittest discover -s tests -v

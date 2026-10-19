@@ -166,6 +166,10 @@ class SubjectPort:
                 return _frame("I notice time passing. " + outcome["inner"],
                               outcome["spoken_aloud"])
             return _from_experience(outcome)
+        if command.startswith("project:"):
+            from .personal_projects import PersonalProjects
+            return _from_experience(PersonalProjects(self.habitat).act(
+                command.partition(":")[2], event_id=event_id, **args))
         if command.startswith("arrange:"):
             from .home_arrangement import HomeArrangements
             return _from_experience(HomeArrangements(self.habitat).act(
