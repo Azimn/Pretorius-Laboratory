@@ -84,7 +84,7 @@ def _meal_stale(s: dict) -> bool:
 OPERATIONS = {"look", "advance", "tick", "light", "extinguish", "prepare_meal",
               "eat", "brew_tea", "sleep", "rest", "clean", "experiment",
               "repair", "discard_meal", "write_paper", "read_paper",
-              "drink_water", "accept_delivery"}
+              "drink_water", "accept_delivery", "use_washroom"}
 
 
 def _metadata(db):
@@ -340,7 +340,8 @@ def _perceive(s: dict, station: str) -> str:
 def transition(state: dict, op: str, args: dict, station: str, *,
                stock_access: dict | None = None,
                writing_access: dict | None = None,
-               delivery_authorized: bool = False):
+               delivery_authorized: bool = False,
+               care_authorized: bool = False):
     """Pure replayable transition: no raw numbers are returned to the subject."""
     if op not in OPERATIONS or station not in STATIONS or not isinstance(args, dict):
         raise LabError("Unsupported daily-life action or bodily station")
@@ -468,6 +469,14 @@ def transition(state: dict, op: str, args: dict, station: str, *,
             raise Conflict("There is not enough light left to finish reading")
         _pass_time(new, 2)
         inner = "I read what is written on my paper: " + new["paper_marks"][page - 1]
+    elif op == "use_washroom":
+        if args or station != STATION_BEDROOM or not care_authorized:
+            raise Conflict("The private sanitary annex is not available from here")
+        # A small private fitted washroom is a genuine fixed architectural
+        # amenity in this opt-in house. No bladder/pain meter is introduced.
+        _pass_time(new, 10)
+        inner = ("I step into the small private washroom beside my bedroom, "
+                 "use the water closet, wash my hands and return.")
     elif op == "drink_water":
         if args or station != STATION_KITCHEN:
             raise Conflict("I need to drink water in the kitchen")
@@ -710,7 +719,8 @@ class DailyRhythm:
                 result, subjective = transition(
                     seed, e["op"], e["args"], station,
                     stock_access=access, writing_access=paper,
-                    delivery_authorized=delivery_authorized)
+                    delivery_authorized=delivery_authorized,
+                    care_authorized=care is not None)
                 if e["op"] == "accept_delivery":
                     delivery_days.add(delivery_day)
                 if (e["subject"] != subjective or
@@ -766,7 +776,8 @@ class DailyRhythm:
             after, subjective = transition(
                 m["state"], op, args, body["station"],
                 stock_access=access, writing_access=paper,
-                delivery_authorized=delivery_authorized)
+                delivery_authorized=delivery_authorized,
+                care_authorized=care is not None)
             event = {
                 "event_id": event_id, "revision": m["revision"] + 1,
                 "op": op, "args": args,
