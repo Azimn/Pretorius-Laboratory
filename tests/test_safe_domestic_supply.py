@@ -72,6 +72,20 @@ class CareWorld(unittest.TestCase):
         self.assertLess(after["thirst"], prior["thirst"])
         self.assertTrue(self.time.verify()["verified"])
 
+    def test_uncooked_bread_provides_agent_control_when_fuel_is_not_needed(self):
+        self.hall()
+        self.kitchen("bread")
+        self.choose("open", "open-for-bread", container="cupboard:kitchen")
+        before = self.time.audit_state()
+        self.choose("eat_bread", "eat-simple-bread")
+        after = self.time.audit_state()
+        self.assertEqual(after["supplies"]["rations"],
+                         before["supplies"]["rations"] - 1)
+        self.assertEqual(after["supplies"]["fuel"], before["supplies"]["fuel"])
+        self.assertEqual(after["supplies"]["water"], before["supplies"]["water"])
+        self.assertLess(after["hunger"], before["hunger"])
+        self.assertTrue(self.time.verify()["verified"])
+
     def test_second_order_possible_only_after_first_handled(self):
         self.hall()
         self.choose("order_provisions", "order-one")
