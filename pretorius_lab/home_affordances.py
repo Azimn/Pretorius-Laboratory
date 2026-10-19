@@ -23,6 +23,8 @@ _DOMESTIC_OPERATIONS = ("open", "close", "take", "put")
 _RHYTHM_OPERATIONS = {
     "brew_tea": "brew a cup of tea",
     "drink_water": "drink plain water from my cup",
+    "use_washroom": "use the private sanitary closet",
+    "wash_hands": "wash my hands at the washstand",
     "order_provisions": "order more provisions from my supplier",
     "collect_provisions": "collect the parcel waiting in the hall",
     "unpack_provisions": "unpack the delivered provisions in my kitchen",
