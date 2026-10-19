@@ -64,6 +64,8 @@ class HouseholdCareTests(unittest.TestCase):
 
     def test_kitchen_tap_can_reopen_hydration_without_a_delivery(self):
         self.go_kitchen()
+        self.assertIn("fixed drinking-water tap",
+                      self.home.subject.observe()["inner"])
         self.do("open", "water-service-cupboard", container="cupboard:kitchen")
         from pretorius_lab.daily_rhythm import transition
         before = self.clock.audit_state()
@@ -195,6 +197,8 @@ class HouseholdCareTests(unittest.TestCase):
     def test_private_period_washroom_is_reachable_with_no_bladder_drain(self):
         self.go_hall("to-washroom")
         self.do("walk", "to-private-bedroom", station="station:bedroom")
+        self.assertIn("door to the little private washroom",
+                      self.home.subject.observe()["inner"])
         available = self.choice("use_washroom")
         self.assertIsNotNone(available)
         before = self.clock.audit_state()
