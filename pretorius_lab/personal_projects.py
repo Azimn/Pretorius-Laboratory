@@ -63,6 +63,10 @@ def _source(db, table, event_id, event_hash):
             type(event_id) is not str or not 1 <= len(event_id) <= 128 or
             type(event_hash) is not str or not re.fullmatch(r"[0-9a-f]{64}", event_hash)):
         raise LabError("Only identified, supported physical receipts may be linked")
+    if not db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,)).fetchone():
+        raise Conflict("The referenced physical domain is not installed")
     row = db.execute(
         "SELECT " + SOURCES[table] + ",event_hash FROM " + table +
         " WHERE event_id=?", (event_id,),
@@ -222,6 +226,34 @@ class PersonalProjects:
         return self.verify()
 
     def verify(self):
+        # Project associations cannot outrank physical-world authority. An
+        # internally consistent counterfeit receipt in another domain must
+        # fail that domain's full event replay, not just its local JSON hash.
+        with self.habitat._open() as db:
+            if not exists(db):
+                raise LabError("Personal projects not initialized")
+            snapshot = _meta(db)["state"]
+        _validate(snapshot)
+        source_domains = {
+            item["source_table"]
+            for project in snapshot["projects"].values()
+            for item in project["receipts"]
+        }
+        from .material_objects import MaterialObjects
+        from .home_arrangement import HomeArrangements
+        from .book_library import BookLibrary
+        from .book_custody import BookCustody
+        for domain in sorted(source_domains):
+            if domain == "botanical_events":
+                MaterialObjects(self.habitat).verify()
+            elif domain == "arrangement_events":
+                HomeArrangements(self.habitat).verify()
+            elif domain == "books_events":
+                BookLibrary(self.habitat).verify()
+            elif domain == "custody_events":
+                BookCustody(self.habitat).verify()
+            elif domain not in SOURCES:
+                raise Conflict("Unsupported project evidence authority")
         world = self.habitat.verify()
         HomeLife(self.habitat).verify()
         DailyRhythm(self.habitat).verify()
