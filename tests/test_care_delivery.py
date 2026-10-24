@@ -287,6 +287,43 @@ class HouseholdCareTests(unittest.TestCase):
         self.assertLess(self.clock.audit_state()["thirst"], 8)
         self.assertTrue(self.clock.verify()["verified"])
 
+    def test_workshop_consumables_restock_only_on_collected_delivery(self):
+        self.go_hall("workshop-prep")
+        self.next_day("workshop-wait")
+        before = dict(self.clock.audit_state()["supplies"])
+        self.do("accept_delivery", "workshop-delivery", day=1)
+        after = self.clock.audit_state()["supplies"]
+        for resource in ("reagents", "spares"):
+            self.assertGreater(after[resource], before[resource], resource)
+        self.assertTrue(self.clock.verify()["verified"])
+
+
+    def test_deploy_gate_domestic_and_workshop_consumption_recovery(self):
+        """One real world: consume physical domestic and workshop stocks, then collect."""
+        baseline = dict(self.clock.audit_state()["supplies"])
+        self.do("walk", "all-stock-center", station="station:center")
+        self.do("walk", "all-stock-bench", station="station:bench")
+        self.do("experiment", "all-stock-experiment")
+        self.do("repair", "all-stock-repair")
+        self.do("walk", "all-stock-exit-bench", station="station:center")
+        self.do("walk", "all-stock-exit-center", station="station:threshold")
+        self.go_kitchen("all-stock")
+        self.do("open", "all-stock-open", container="cupboard:kitchen")
+        self.do("brew_tea", "all-stock-tea")
+        consumed = dict(self.clock.audit_state()["supplies"])
+        for resource in ("water", "fuel", "tea", "reagents", "spares"):
+            with self.subTest(phase="consume", resource=resource):
+                self.assertLess(consumed[resource], baseline[resource])
+        self.do("walk", "all-stock-return-hall", station="station:hall")
+        self.next_day("all-stock-next")
+        self.do("accept_delivery", "all-stock-collected", day=1)
+        restored = dict(self.clock.audit_state()["supplies"])
+        for resource in ("water", "fuel", "tea", "reagents", "spares"):
+            with self.subTest(phase="restock", resource=resource):
+                self.assertGreater(restored[resource], consumed[resource])
+        self.assertTrue(self.clock.verify()["verified"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
