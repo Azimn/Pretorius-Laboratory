@@ -214,6 +214,7 @@ class CareWorld(unittest.TestCase):
         for resource in ("water", "fuel", "tea", "reagents", "spares"):
             with self.subTest(phase="consume", resource=resource):
                 self.assertLess(consumed[resource], baseline[resource])
+                print(f"GATE3 PASS consume {resource}: {baseline[resource]} -> {consumed[resource]}", flush=True)
         self.choose("walk", "both-stocks-back-hall", station="station:hall")
         self.choose("order_provisions", "both-stocks-order")
         self.time.advance(240, event_id="both-stocks-delivery")
@@ -224,8 +225,25 @@ class CareWorld(unittest.TestCase):
         for resource in ("water", "fuel", "tea", "reagents", "spares"):
             with self.subTest(phase="restock", resource=resource):
                 self.assertGreater(restored[resource], consumed[resource])
+                print(f"GATE3 PASS restock {resource}: {consumed[resource]} -> {restored[resource]}", flush=True)
         self.assertTrue(self.time.verify()["verified"])
 
+
+    def test_historical_household_receipt_still_replays_after_bundle_change(self):
+        """A pre-fix unpacked parcel must remain independently verifiable."""
+        from unittest.mock import patch
+        import pretorius_lab.daily_rhythm as source
+        old_bundle = {"water": 14, "fuel": 8, "rations": 8, "tea": 4, "oil": 3}
+        with patch.dict(source.DELIVERY_BUNDLE, old_bundle, clear=True):
+            self.hall()
+            self.choose("order_provisions", "legacy-order")
+            self.time.advance(240, event_id="legacy-arrival")
+            self.choose("collect_provisions", "legacy-collect")
+            self.kitchen("legacy-unpack")
+            self.choose("unpack_provisions", "legacy-unpacked")
+            self.assertTrue(self.time.verify()["verified"])
+        # The exact unchanged historical event must still replay under new code.
+        self.assertTrue(self.time.verify()["verified"])
 
 
 if __name__ == "__main__":
