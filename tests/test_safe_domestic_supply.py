@@ -176,6 +176,27 @@ class CareWorld(unittest.TestCase):
             self.time.verify()
         self.assertTrue(HomeLife(self.lab).verify()["verified"])
 
+    def test_domestic_grocer_has_no_workshop_inventory_authority(self):
+        """Ordered and unpacked grocery parcel must not mint laboratory goods."""
+        before = dict(self.time.audit_state()["supplies"])
+        self.hall()
+        self.choose("order_provisions", "supply-origin-order")
+        self.time.advance(240, event_id="supply-origin-arrival")
+        self.choose("collect_provisions", "supply-origin-collected")
+        self.kitchen("supply-origin-unpack")
+        self.choose("unpack_provisions", "supply-origin-unpacked")
+        delivered = dict(self.time.audit_state()["supplies"])
+        for item in ("water", "fuel", "tea", "rations", "oil"):
+            with self.subTest(item=item):
+                self.assertGreater(delivered[item], before[item])
+        for item in ("reagents", "spares"):
+            with self.subTest(item=item):
+                self.assertEqual(
+                    delivered[item], before[item],
+                    "Grocer receipt cannot attest workshop stock")
+        self.assertTrue(self.time.verify()["verified"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
