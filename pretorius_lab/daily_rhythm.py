@@ -28,7 +28,7 @@ CARE_RULES = "pretorius-daily-rhythm/6-provisioned-residency"
 # and explicit unpacking. The supplier's village is NOT simulated yet.
 DELIVERY_DELAY = 240
 DELIVERY_BUNDLE = {"water": 14, "fuel": 8, "rations": 8,
-                   "tea": 4, "oil": 3}
+                   "tea": 4, "oil": 3, "reagents": 3, "spares": 2}
 MAX_PAPER_PAGES = 40
 MAX_PAPER_CHARS = 240
 MEAL_FRESH_MINUTES = 360  # deliberately coarse six-hour prepared-food window
