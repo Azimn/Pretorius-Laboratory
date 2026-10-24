@@ -287,6 +287,17 @@ class HouseholdCareTests(unittest.TestCase):
         self.assertLess(self.clock.audit_state()["thirst"], 8)
         self.assertTrue(self.clock.verify()["verified"])
 
+    def test_workshop_consumables_restock_only_on_collected_delivery(self):
+        self.go_hall("workshop-prep")
+        self.next_day("workshop-wait")
+        before = dict(self.clock.audit_state()["supplies"])
+        self.do("accept_delivery", "workshop-delivery", day=1)
+        after = self.clock.audit_state()["supplies"]
+        for resource in ("reagents", "spares"):
+            self.assertGreater(after[resource], before[resource], resource)
+        self.assertTrue(self.clock.verify()["verified"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
