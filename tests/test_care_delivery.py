@@ -314,6 +314,7 @@ class HouseholdCareTests(unittest.TestCase):
         for resource in ("water", "fuel", "tea", "reagents", "spares"):
             with self.subTest(phase="consume", resource=resource):
                 self.assertLess(consumed[resource], baseline[resource])
+                print(f"GATE3 PASS consume {resource}: {baseline[resource]} -> {consumed[resource]}", flush=True)
         self.do("walk", "all-stock-return-hall", station="station:hall")
         self.next_day("all-stock-next")
         self.do("accept_delivery", "all-stock-collected", day=1)
@@ -321,8 +322,22 @@ class HouseholdCareTests(unittest.TestCase):
         for resource in ("water", "fuel", "tea", "reagents", "spares"):
             with self.subTest(phase="restock", resource=resource):
                 self.assertGreater(restored[resource], consumed[resource])
+                print(f"GATE3 PASS restock {resource}: {consumed[resource]} -> {restored[resource]}", flush=True)
         self.assertTrue(self.clock.verify()["verified"])
 
+
+    def test_historical_household_receipt_still_replays_after_bundle_change(self):
+        """A pre-fix accepted delivery must remain independently verifiable."""
+        from unittest.mock import patch
+        import pretorius_lab.daily_rhythm as source
+        old_bundle = {"water": 9, "fuel": 6, "rations": 4, "tea": 3, "oil": 3}
+        with patch.dict(source.DELIVERY_STOCK, old_bundle, clear=True):
+            self.go_hall("legacy-delivery")
+            self.next_day("legacy-day")
+            self.do("accept_delivery", "legacy-accepted", day=1)
+            self.assertTrue(self.clock.verify()["verified"])
+        # The exact unchanged historical event must still replay under new code.
+        self.assertTrue(self.clock.verify()["verified"])
 
 
 if __name__ == "__main__":
