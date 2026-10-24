@@ -177,9 +177,14 @@ class CareWorld(unittest.TestCase):
         self.assertTrue(HomeLife(self.lab).verify()["verified"])
 
     def test_workshop_supplies_recover_only_after_authenticated_unpacked_parcel(self):
+        # Arrive at the actual bench; this is part of source-verified fixture setup.
+        self.choose("walk", "to-center-for-work", station="station:center")
+        self.choose("walk", "to-bench-for-work", station="station:bench")
         self.time.act("experiment", event_id="workshop-uses-reagent")
         self.time.act("repair", event_id="workshop-uses-spare")
         depleted = dict(self.time.audit_state()["supplies"])
+        self.choose("walk", "leave-bench-after-work", station="station:center")
+        self.choose("walk", "leave-center-after-work", station="station:threshold")
         self.hall()
         self.choose("order_provisions", "workshop-order")
         self.time.advance(240, event_id="workshop-arrival")
