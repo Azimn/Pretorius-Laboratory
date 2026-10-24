@@ -41,7 +41,7 @@ STATION_BEDROOM = "station:bedroom"
 # local supplier. They do not enter stock until the subject collects them.
 DELIVERY_FIRST_MINUTE = 1440 + 360
 DELIVERY_STOCK = {"water": 9, "fuel": 6, "rations": 4,
-                  "tea": 3, "oil": 3}
+                  "tea": 3, "oil": 3, "reagents": 3, "spares": 2}
 
 
 def initial_state() -> dict:

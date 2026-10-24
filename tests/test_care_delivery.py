@@ -287,6 +287,58 @@ class HouseholdCareTests(unittest.TestCase):
         self.assertLess(self.clock.audit_state()["thirst"], 8)
         self.assertTrue(self.clock.verify()["verified"])
 
+    def test_workshop_consumables_restock_only_on_collected_delivery(self):
+        self.go_hall("workshop-prep")
+        self.next_day("workshop-wait")
+        before = dict(self.clock.audit_state()["supplies"])
+        self.do("accept_delivery", "workshop-delivery", day=1)
+        after = self.clock.audit_state()["supplies"]
+        for resource in ("reagents", "spares"):
+            self.assertGreater(after[resource], before[resource], resource)
+        self.assertTrue(self.clock.verify()["verified"])
+
+
+    def test_deploy_gate_domestic_and_workshop_consumption_recovery(self):
+        """One real world: consume physical domestic and workshop stocks, then collect."""
+        baseline = dict(self.clock.audit_state()["supplies"])
+        self.do("walk", "all-stock-center", station="station:center")
+        self.do("walk", "all-stock-bench", station="station:bench")
+        self.do("experiment", "all-stock-experiment")
+        self.do("repair", "all-stock-repair")
+        self.do("walk", "all-stock-exit-bench", station="station:center")
+        self.do("walk", "all-stock-exit-center", station="station:threshold")
+        self.go_kitchen("all-stock")
+        self.do("open", "all-stock-open", container="cupboard:kitchen")
+        self.do("brew_tea", "all-stock-tea")
+        consumed = dict(self.clock.audit_state()["supplies"])
+        for resource in ("water", "fuel", "tea", "reagents", "spares"):
+            with self.subTest(phase="consume", resource=resource):
+                self.assertLess(consumed[resource], baseline[resource])
+                print(f"GATE3 PASS consume {resource}: {baseline[resource]} -> {consumed[resource]}", flush=True)
+        self.do("walk", "all-stock-return-hall", station="station:hall")
+        self.next_day("all-stock-next")
+        self.do("accept_delivery", "all-stock-collected", day=1)
+        restored = dict(self.clock.audit_state()["supplies"])
+        for resource in ("water", "fuel", "tea", "reagents", "spares"):
+            with self.subTest(phase="restock", resource=resource):
+                self.assertGreater(restored[resource], consumed[resource])
+                print(f"GATE3 PASS restock {resource}: {consumed[resource]} -> {restored[resource]}", flush=True)
+        self.assertTrue(self.clock.verify()["verified"])
+
+
+    def test_historical_household_receipt_still_replays_after_bundle_change(self):
+        """A pre-fix accepted delivery must remain independently verifiable."""
+        from unittest.mock import patch
+        import pretorius_lab.daily_rhythm as source
+        old_bundle = {"water": 9, "fuel": 6, "rations": 4, "tea": 3, "oil": 3}
+        with patch.dict(source.DELIVERY_STOCK, old_bundle, clear=True):
+            self.go_hall("legacy-delivery")
+            self.next_day("legacy-day")
+            self.do("accept_delivery", "legacy-accepted", day=1)
+            self.assertTrue(self.clock.verify()["verified"])
+        # The exact unchanged historical event must still replay under new code.
+        self.assertTrue(self.clock.verify()["verified"])
+
 
 if __name__ == "__main__":
     unittest.main()
