@@ -176,6 +176,57 @@ class CareWorld(unittest.TestCase):
             self.time.verify()
         self.assertTrue(HomeLife(self.lab).verify()["verified"])
 
+    def test_workshop_supplies_recover_only_after_authenticated_unpacked_parcel(self):
+        # Arrive at the actual bench; this is part of source-verified fixture setup.
+        self.choose("walk", "to-center-for-work", station="station:center")
+        self.choose("walk", "to-bench-for-work", station="station:bench")
+        self.time.act("experiment", event_id="workshop-uses-reagent")
+        self.time.act("repair", event_id="workshop-uses-spare")
+        depleted = dict(self.time.audit_state()["supplies"])
+        self.choose("walk", "leave-bench-after-work", station="station:center")
+        self.choose("walk", "leave-center-after-work", station="station:threshold")
+        self.hall()
+        self.choose("order_provisions", "workshop-order")
+        self.time.advance(240, event_id="workshop-arrival")
+        self.choose("collect_provisions", "workshop-collect")
+        self.kitchen("workshop-parcel")
+        self.choose("unpack_provisions", "workshop-unpack")
+        restored = self.time.audit_state()["supplies"]
+        for resource in ("reagents", "spares"):
+            self.assertGreater(restored[resource], depleted[resource], resource)
+        self.assertTrue(self.time.verify()["verified"])
+
+
+    def test_deploy_gate_domestic_and_workshop_consumption_recovery(self):
+        """No automatic restock: consume five stocks, collect and unpack real parcel."""
+        baseline = dict(self.time.audit_state()["supplies"])
+        self.choose("walk", "both-stocks-center", station="station:center")
+        self.choose("walk", "both-stocks-bench", station="station:bench")
+        self.choose("experiment", "both-stocks-experiment")
+        self.choose("repair", "both-stocks-repair")
+        self.choose("walk", "both-stocks-exit-bench", station="station:center")
+        self.choose("walk", "both-stocks-exit-center", station="station:threshold")
+        self.hall()
+        self.kitchen("both-stocks")
+        self.choose("open", "both-stocks-open", container="cupboard:kitchen")
+        self.choose("brew_tea", "both-stocks-tea")
+        consumed = dict(self.time.audit_state()["supplies"])
+        for resource in ("water", "fuel", "tea", "reagents", "spares"):
+            with self.subTest(phase="consume", resource=resource):
+                self.assertLess(consumed[resource], baseline[resource])
+        self.choose("walk", "both-stocks-back-hall", station="station:hall")
+        self.choose("order_provisions", "both-stocks-order")
+        self.time.advance(240, event_id="both-stocks-delivery")
+        self.choose("collect_provisions", "both-stocks-collect")
+        self.kitchen("both-stocks-unpack")
+        self.choose("unpack_provisions", "both-stocks-unpacked")
+        restored = dict(self.time.audit_state()["supplies"])
+        for resource in ("water", "fuel", "tea", "reagents", "spares"):
+            with self.subTest(phase="restock", resource=resource):
+                self.assertGreater(restored[resource], consumed[resource])
+        self.assertTrue(self.time.verify()["verified"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
