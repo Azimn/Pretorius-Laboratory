@@ -287,6 +287,24 @@ class HouseholdCareTests(unittest.TestCase):
         self.assertLess(self.clock.audit_state()["thirst"], 8)
         self.assertTrue(self.clock.verify()["verified"])
 
+    def test_domestic_supplier_has_no_workshop_inventory_authority(self):
+        """Voluntary household collection must not mint chemicals or machine spares."""
+        before = dict(self.clock.audit_state()["supplies"])
+        self.go_hall("supply-origin")
+        self.next_day("supply-origin-day")
+        self.do("accept_delivery", "supply-origin-collected", day=1)
+        delivered = dict(self.clock.audit_state()["supplies"])
+        for item in ("water", "fuel", "tea", "rations", "oil"):
+            with self.subTest(item=item):
+                self.assertGreater(delivered[item], before[item])
+        for item in ("reagents", "spares"):
+            with self.subTest(item=item):
+                self.assertEqual(
+                    delivered[item], before[item],
+                    "Household delivery cannot attest workshop stock")
+        self.assertTrue(self.clock.verify()["verified"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
