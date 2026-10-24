@@ -176,6 +176,22 @@ class CareWorld(unittest.TestCase):
             self.time.verify()
         self.assertTrue(HomeLife(self.lab).verify()["verified"])
 
+    def test_workshop_supplies_recover_only_after_authenticated_unpacked_parcel(self):
+        self.time.act("experiment", event_id="workshop-uses-reagent")
+        self.time.act("repair", event_id="workshop-uses-spare")
+        depleted = dict(self.time.audit_state()["supplies"])
+        self.hall()
+        self.choose("order_provisions", "workshop-order")
+        self.time.advance(240, event_id="workshop-arrival")
+        self.choose("collect_provisions", "workshop-collect")
+        self.kitchen("workshop-parcel")
+        self.choose("unpack_provisions", "workshop-unpack")
+        restored = self.time.audit_state()["supplies"]
+        for resource in ("reagents", "spares"):
+            self.assertGreater(restored[resource], depleted[resource], resource)
+        self.assertTrue(self.time.verify()["verified"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
